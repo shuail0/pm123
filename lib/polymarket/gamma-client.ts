@@ -51,6 +51,7 @@ export interface MarketQueryParams {
   end_date_min?: string;
   end_date_max?: string;
   tag_id?: number;
+  exclude_tag_id?: number[];
   related_tags?: boolean;
 }
 

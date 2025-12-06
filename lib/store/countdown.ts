@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getExcludedTagIdsByCategories } from '@/lib/constants/tags';
 
 export type UrgencyLevel = 'critical' | 'urgent' | 'soon' | 'normal';
 
@@ -11,6 +12,7 @@ export interface CountdownMarket {
   id: string;
   condition_id: string;
   question: string;
+  groupItemTitle?: string;
   description?: string;
   category?: string;
   image?: string;
@@ -18,6 +20,7 @@ export interface CountdownMarket {
   liquidityNum?: number;
   volume?: string | number;
   volumeNum?: number;
+  volume24hr?: string | number;
   outcomePrices?: string;
   lastTradePrice?: string;
   endDate?: string;
@@ -27,6 +30,7 @@ export interface CountdownMarket {
   closed?: boolean;
   archived?: boolean;
   tags?: string[];
+  tagIds?: number[];
   eventId?: string;
   eventTitle?: string;
   eventSlug?: string;
@@ -37,14 +41,15 @@ export interface CountdownMarket {
   _childMarkets?: CountdownMarket[];
 }
 
-export type SortField = 'market' | 'liquidity' | 'volume' | 'ends' | 'urgency';
+export type SortField = 'market' | 'liquidity' | 'volume' | 'volume24hr' | 'ends' | 'urgency';
 export type SortDirection = 'asc' | 'desc';
 
 export interface FilterOptions {
   status: 'all' | 'active' | 'closed';
-  timePeriod: '30min' | '2h' | '12h' | '24h' | 'all';
+  timePeriod: '30min' | '1h' | '2h' | '6h' | '12h' | '24h' | '3d' | '7d' | 'all';
   categories: string[];
   tags: string[];
+  excludedTagCategories: string[]; // 排除的分类 ID
   searchQuery?: string;
   minLiquidity?: number;
   sortField: SortField;
@@ -63,12 +68,6 @@ interface CountdownStore {
   error: string | null;
   lastUpdate: number | null;
   currentTime: number;
-  settings: {
-    autoRefresh: boolean;
-    refreshInterval: number;
-    enableNotifications: boolean;
-    priceAlertThreshold: number;
-  };
 
   setMarkets: (markets: CountdownMarket[]) => void;
   setFilteredMarkets: (markets: CountdownMarket[]) => void;
@@ -82,7 +81,6 @@ interface CountdownStore {
   setError: (error: string | null) => void;
   setLastUpdate: (timestamp: number) => void;
   setCurrentTime: (time: number) => void;
-  updateSettings: (settings: Partial<CountdownStore['settings']>) => void;
   applyFilters: () => void;
   loadFromLocalStorage: () => void;
   saveToLocalStorage: () => void;
@@ -96,9 +94,10 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
   marketHistory: [],
   filter: {
     status: 'active',
-    timePeriod: '2h',
+    timePeriod: 'all',
     categories: [],
     tags: [],
+    excludedTagCategories: ['sports', 'esports', 'crypto_prices', 'stocks', 'weather', 'short_term', 'social_media'],
     searchQuery: '',
     minLiquidity: 1000,
     sortField: 'urgency',
@@ -109,12 +108,6 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
   error: null,
   lastUpdate: null,
   currentTime: Date.now(),
-  settings: {
-    autoRefresh: true,
-    refreshInterval: 300000,
-    enableNotifications: false,
-    priceAlertThreshold: 5,
-  },
 
   setMarkets: (markets) => {
     set({ markets });
@@ -190,14 +183,25 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
 
   setCurrentTime: (time) => set({ currentTime: time }),
 
-  updateSettings: (newSettings) => {
-    set({ settings: { ...get().settings, ...newSettings } });
-    get().saveToLocalStorage();
-  },
-
   applyFilters: () => {
     const { markets, filter } = get();
     let filtered = [...markets];
+
+    // 标签分类排除过滤（在本地过滤）
+    if (filter.excludedTagCategories.length > 0) {
+      const excludedTagIds = new Set(getExcludedTagIdsByCategories(filter.excludedTagCategories));
+
+      filtered = filtered.filter(m => {
+        // 如果市场没有标签，保留
+        if (!m.tagIds || m.tagIds.length === 0) return true;
+
+        // 检查市场是否有任何标签在排除列表中
+        // 只要有一个标签在排除列表中，就排除这个市场
+        const hasExcludedTag = m.tagIds.some((tagId: number) => excludedTagIds.has(tagId));
+
+        return !hasExcludedTag;
+      });
+    }
 
     // 搜索过滤
     if (filter.searchQuery) {
@@ -219,7 +223,7 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
 
     // 时间周期过滤
     if (filter.timePeriod !== 'all') {
-      const hourMap = { '30min': 0.5, '2h': 2, '12h': 12, '24h': 24 };
+      const hourMap = { '30min': 0.5, '1h': 1, '2h': 2, '6h': 6, '12h': 12, '24h': 24, '3d': 72, '7d': 168 };
       const maxHours = hourMap[filter.timePeriod as keyof typeof hourMap];
       filtered = filtered.filter(m => m._hoursUntil && m._hoursUntil <= maxHours);
     }
@@ -261,6 +265,10 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
           aVal = parseFloat(String(a.volume || a.volumeNum || '0'));
           bVal = parseFloat(String(b.volume || b.volumeNum || '0'));
           break;
+        case 'volume24hr':
+          aVal = parseFloat(String(a.volume24hr || '0'));
+          bVal = parseFloat(String(b.volume24hr || '0'));
+          break;
         case 'ends':
           aVal = a._deadline?.getTime() || 0;
           bVal = b._deadline?.getTime() || 0;
@@ -292,12 +300,10 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
       const favs = localStorage.getItem('pm123_countdown_favorites');
       const prices = localStorage.getItem('pm123_countdown_price_history');
       const history = localStorage.getItem('pm123_countdown_market_history');
-      const settings = localStorage.getItem('pm123_countdown_settings');
 
       if (favs) set({ favorites: new Set(JSON.parse(favs)) });
       if (prices) set({ priceHistory: JSON.parse(prices) });
       if (history) set({ marketHistory: JSON.parse(history) });
-      if (settings) set({ settings: JSON.parse(settings) });
     } catch (e) {
       console.error('Failed to load from localStorage:', e);
     }
@@ -306,11 +312,10 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
   saveToLocalStorage: () => {
     if (typeof window === 'undefined') return;
     try {
-      const { favorites, priceHistory, marketHistory, settings } = get();
+      const { favorites, priceHistory, marketHistory } = get();
       localStorage.setItem('pm123_countdown_favorites', JSON.stringify([...favorites]));
       localStorage.setItem('pm123_countdown_price_history', JSON.stringify(priceHistory));
       localStorage.setItem('pm123_countdown_market_history', JSON.stringify(marketHistory));
-      localStorage.setItem('pm123_countdown_settings', JSON.stringify(settings));
     } catch (e) {
       console.error('Failed to save to localStorage:', e);
     }

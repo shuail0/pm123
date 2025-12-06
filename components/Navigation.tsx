@@ -9,7 +9,7 @@ export default function Navigation() {
 
   const navItems = [
     { href: "/countdown", label: "尾盘市场" },
-    { href: "/markets", label: "市场搜索" },
+    { href: "/arbitrage", label: "跨市场套利" },
   ];
 
   return (
