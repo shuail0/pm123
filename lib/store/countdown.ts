@@ -68,6 +68,8 @@ interface CountdownStore {
   error: string | null;
   lastUpdate: number | null;
   currentTime: number;
+  currentPage: number;
+  pageSize: number;
 
   setMarkets: (markets: CountdownMarket[]) => void;
   setFilteredMarkets: (markets: CountdownMarket[]) => void;
@@ -81,6 +83,8 @@ interface CountdownStore {
   setError: (error: string | null) => void;
   setLastUpdate: (timestamp: number) => void;
   setCurrentTime: (time: number) => void;
+  setCurrentPage: (page: number) => void;
+  setPageSize: (size: number) => void;
   applyFilters: () => void;
   loadFromLocalStorage: () => void;
   saveToLocalStorage: () => void;
@@ -108,6 +112,8 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
   error: null,
   lastUpdate: null,
   currentTime: Date.now(),
+  currentPage: 1,
+  pageSize: 20,
 
   setMarkets: (markets) => {
     set({ markets });
@@ -182,6 +188,10 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
   setLastUpdate: (timestamp) => set({ lastUpdate: timestamp }),
 
   setCurrentTime: (time) => set({ currentTime: time }),
+
+  setCurrentPage: (page) => set({ currentPage: page }),
+
+  setPageSize: (size) => set({ pageSize: size, currentPage: 1 }),
 
   applyFilters: () => {
     const { markets, filter } = get();

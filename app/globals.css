@@ -62,4 +62,13 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  @keyframes loading {
+    0%, 100% {
+      transform: translateX(-100%);
+    }
+    50% {
+      transform: translateX(200%);
+    }
+  }
 }

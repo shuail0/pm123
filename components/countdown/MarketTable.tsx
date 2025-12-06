@@ -6,7 +6,7 @@ import { useMemo } from 'react';
 import Image from 'next/image';
 
 export function MarketTable() {
-  const { filteredMarkets, expandedEvents, toggleEventExpand, filter, setSorting } = useCountdownStore();
+  const { filteredMarkets, expandedEvents, toggleEventExpand, filter, setSorting, loading, currentPage, pageSize, setCurrentPage, setPageSize } = useCountdownStore();
 
   // 将市场按事件分组
   const groupedMarkets = useMemo(() => {
@@ -34,6 +34,12 @@ export function MarketTable() {
     });
   }, [filteredMarkets]);
 
+  // 分页计算
+  const totalPages = Math.ceil(groupedMarkets.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedMarkets = groupedMarkets.slice(startIndex, endIndex);
+
   const SortButton = ({ field, label }: { field: SortField; label: string }) => {
     const isActive = filter.sortField === field;
     const Icon = isActive ? (filter.sortDirection === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
@@ -49,12 +55,12 @@ export function MarketTable() {
     );
   };
 
-  const UrgencyBadge = ({ urgency }: { urgency: string }) => {
+  const TimingBadge = ({ urgency }: { urgency: string }) => {
     const config = {
-      critical: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200', label: '非常紧急' },
-      urgent: { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-200', label: '紧急' },
-      soon: { bg: 'bg-yellow-50', text: 'text-yellow-600', border: 'border-yellow-200', label: '即将到期' },
-      normal: { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200', label: '正常' }
+      critical: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200', label: '1小时内' },
+      urgent: { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-200', label: '24小时内' },
+      soon: { bg: 'bg-yellow-50', text: 'text-yellow-600', border: 'border-yellow-200', label: '本周内' },
+      normal: { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200', label: '更晚' }
     };
     const style = config[urgency as keyof typeof config] || config.normal;
 
@@ -106,7 +112,9 @@ export function MarketTable() {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col">
+      {/* 表格容器 - 带滚动 */}
+      <div className="overflow-hidden flex-1">
       {/* 表头 */}
       <div className="grid grid-cols-[48px,2fr,1fr,1fr,1fr,1fr,140px,1.2fr] gap-4 px-4 py-2.5 bg-gray-50/80 border-b border-gray-200 text-xs font-semibold text-gray-600 tracking-wide">
         <div></div>
@@ -115,19 +123,30 @@ export function MarketTable() {
         <div className="text-right"><SortButton field="volume" label="总成交量" /></div>
         <div className="text-right"><SortButton field="liquidity" label="流动性" /></div>
         <div className="text-center"><SortButton field="ends" label="结束时间(UTC)" /></div>
-        <div className="text-center"><SortButton field="urgency" label="紧急程度" /></div>
+        <div className="text-center"><SortButton field="urgency" label="时间范围" /></div>
         <div className="text-left">标签</div>
       </div>
 
-      {/* 表体 */}
-      <div className="divide-y divide-gray-100">
-        {groupedMarkets.length === 0 && (
+      {/* 表体 - 带滚动 */}
+      <div className="divide-y divide-gray-100 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 400px)' }}>
+        {loading && (
+          <div className="px-4 py-16">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-64 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-polyBlue to-blue-400 rounded-full animate-[loading_1.5s_ease-in-out_infinite]" style={{ width: '60%' }} />
+              </div>
+              <div className="text-gray-500 text-sm">正在加载市场数据...</div>
+            </div>
+          </div>
+        )}
+
+        {!loading && groupedMarkets.length === 0 && (
           <div className="px-4 py-16 text-center">
             <div className="text-gray-400 text-sm">未找到符合条件的市场</div>
           </div>
         )}
 
-        {groupedMarkets.map(market => {
+        {paginatedMarkets.map(market => {
           const isExpanded = expandedEvents.has(market.eventId || market.id);
           const hasChildren = market._childMarkets && market._childMarkets.length >= 1;
           const liquidity = parseFloat(String(market.liquidity || market.liquidityNum || '0'));
@@ -207,9 +226,9 @@ export function MarketTable() {
                   )}
                 </div>
 
-                {/* 紧急程度 */}
+                {/* 时间范围 */}
                 <div className="flex justify-center">
-                  <UrgencyBadge urgency={market._urgency || 'normal'} />
+                  <TimingBadge urgency={market._urgency || 'normal'} />
                 </div>
 
                 {/* 标签 */}
@@ -297,6 +316,88 @@ export function MarketTable() {
           );
         })}
       </div>
+      </div>
+
+      {/* 分页控件 */}
+      {!loading && totalPages > 1 && (
+        <div className="border-t border-gray-200 px-4 py-3 flex items-center justify-between bg-gray-50/50">
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <span>每页显示</span>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-polyBlue"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span>条，共 {groupedMarkets.length} 条</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="px-3 py-1 rounded-md text-sm font-medium border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              首页
+            </button>
+            <button
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="px-3 py-1 rounded-md text-sm font-medium border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              上一页
+            </button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`w-8 h-8 rounded-md text-sm font-medium transition-colors ${
+                      currentPage === pageNum
+                        ? 'bg-polyBlue text-white'
+                        : 'border border-gray-300 hover:bg-gray-100'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 rounded-md text-sm font-medium border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              下一页
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 rounded-md text-sm font-medium border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              末页
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
