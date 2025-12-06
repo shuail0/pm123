@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-open-sauce: "Open Sauce One", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+@layer base {
+  * {
+    @apply border-gray-5;
+  }
+
+  body {
+    @apply bg-white text-gray-1 antialiased;
+  }
+
+  h1 {
+    @apply text-5xl font-extrabold;
+  }
+
+  h2 {
+    @apply text-3xl font-bold;
+  }
+
+  h3 {
+    @apply text-2xl font-semibold;
+  }
+
+  p {
+    @apply text-md leading-relaxed;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-md font-medium transition-all duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-polyBlue text-white hover:bg-opacity-90 active:shadow-sm;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-6 text-gray-1 hover:bg-gray-5 active:shadow-sm;
+  }
+
+  .card {
+    @apply bg-white border border-borderLight rounded-lg shadow-sm;
+  }
+
+  .input {
+    @apply w-full px-3 py-2 border border-borderLight rounded-sm focus:outline-none focus:ring-2 focus:ring-polyBlue;
+  }
+
+  .container-content {
+    @apply max-w-7xl mx-auto px-6;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
