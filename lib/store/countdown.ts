@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { getExcludedTagIdsByCategories } from '@/lib/constants/tags';
 
 export type UrgencyLevel = 'critical' | 'urgent' | 'soon' | 'normal';
 
@@ -29,6 +28,7 @@ export interface CountdownMarket {
   active?: boolean;
   closed?: boolean;
   archived?: boolean;
+  negRisk?: boolean;
   tags?: string[];
   tagIds?: number[];
   eventId?: string;
@@ -47,11 +47,15 @@ export type SortDirection = 'asc' | 'desc';
 export interface FilterOptions {
   status: 'all' | 'active' | 'closed';
   timePeriod: '30min' | '1h' | '2h' | '6h' | '12h' | '24h' | '3d' | '7d' | 'all';
-  categories: string[];
+  negRiskFilter: 'all' | 'neg_risk' | 'non_neg_risk';
+  selectedCategories: string[];
   tags: string[];
-  excludedTagCategories: string[]; // 排除的分类 ID
   searchQuery?: string;
   minLiquidity?: number;
+  minVolume24hr?: number;
+  maxVolume24hr?: number;
+  minVolume?: number;
+  maxVolume?: number;
   sortField: SortField;
   sortDirection: SortDirection;
 }
@@ -99,9 +103,9 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
   filter: {
     status: 'active',
     timePeriod: 'all',
-    categories: [],
+    negRiskFilter: 'all',
+    selectedCategories: [],
     tags: [],
-    excludedTagCategories: ['sports', 'esports', 'crypto_prices', 'stocks', 'weather', 'short_term', 'social_media'],
     searchQuery: '',
     minLiquidity: 1000,
     sortField: 'urgency',
@@ -197,20 +201,16 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
     const { markets, filter } = get();
     let filtered = [...markets];
 
-    // 标签分类排除过滤（在本地过滤）
-    if (filter.excludedTagCategories.length > 0) {
-      const excludedTagIds = new Set(getExcludedTagIdsByCategories(filter.excludedTagCategories));
+    // NegRisk 筛选
+    if (filter.negRiskFilter === 'neg_risk') {
+      filtered = filtered.filter(m => m.negRisk === true);
+    } else if (filter.negRiskFilter === 'non_neg_risk') {
+      filtered = filtered.filter(m => !m.negRisk);
+    }
 
-      filtered = filtered.filter(m => {
-        // 如果市场没有标签，保留
-        if (!m.tagIds || m.tagIds.length === 0) return true;
-
-        // 检查市场是否有任何标签在排除列表中
-        // 只要有一个标签在排除列表中，就排除这个市场
-        const hasExcludedTag = m.tagIds.some((tagId: number) => excludedTagIds.has(tagId));
-
-        return !hasExcludedTag;
-      });
+    // 分类筛选（直接使用 API 的 category 字段）
+    if (filter.selectedCategories.length > 0) {
+      filtered = filtered.filter(m => m.category && filter.selectedCategories.includes(m.category));
     }
 
     // 搜索过滤
@@ -238,11 +238,6 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
       filtered = filtered.filter(m => m._hoursUntil && m._hoursUntil <= maxHours);
     }
 
-    // 类别过滤
-    if (filter.categories.length > 0) {
-      filtered = filtered.filter(m => m.category && filter.categories.includes(m.category));
-    }
-
     // 标签过滤
     if (filter.tags.length > 0) {
       filtered = filtered.filter(m =>
@@ -255,6 +250,26 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
       filtered = filtered.filter(m => {
         const liquidity = parseFloat(String(m.liquidity || m.liquidityNum || '0'));
         return liquidity >= filter.minLiquidity!;
+      });
+    }
+
+    // 24h成交量过滤
+    if (filter.minVolume24hr !== undefined || filter.maxVolume24hr !== undefined) {
+      filtered = filtered.filter(m => {
+        const vol24 = parseFloat(String(m.volume24hr || '0'));
+        if (filter.minVolume24hr !== undefined && vol24 < filter.minVolume24hr) return false;
+        if (filter.maxVolume24hr !== undefined && vol24 > filter.maxVolume24hr) return false;
+        return true;
+      });
+    }
+
+    // 总成交量过滤
+    if (filter.minVolume !== undefined || filter.maxVolume !== undefined) {
+      filtered = filtered.filter(m => {
+        const vol = parseFloat(String(m.volume || m.volumeNum || '0'));
+        if (filter.minVolume !== undefined && vol < filter.minVolume) return false;
+        if (filter.maxVolume !== undefined && vol > filter.maxVolume) return false;
+        return true;
       });
     }
 

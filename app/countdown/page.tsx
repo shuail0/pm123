@@ -36,8 +36,7 @@ export default function CountdownPage() {
         order: 'endDate',
         ascending: 'true',
         processForCountdown: 'true',
-        fetchAll: 'true',
-        onlyNegRisk: 'true'
+        fetchAll: 'true'
       });
 
       const res = await fetch(`/api/events?${params}`);
@@ -77,10 +76,9 @@ export default function CountdownPage() {
                 <Clock className="w-7 h-7 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">尾盘市场 (NegRisk)</h1>
+                <h1 className="text-3xl font-bold text-gray-900">尾盘市场</h1>
                 <p className="text-gray-600 text-sm mt-1 leading-relaxed">
-                  NegRisk 市场（负风险协议，保证最终只有一个结果发生）。实时展示价格、成交量、流动性、结束时间等关键数据，掌握尾盘动态，利用最后时刻的信息优势获利。<br />
-                  <span className="text-gray-500 text-xs">默认已排除体育竞技、电竞、加密货币价格、股市短期、天气、短期事件、社交媒体等高波动性分类，可在筛选栏中自定义。</span>
+                  实时展示价格、成交量、流动性、结束时间等关键数据，掌握尾盘动态，利用最后时刻的信息优势获利。
                 </p>
                 <p className="text-gray-500 text-xs mt-1.5">
                   {filteredMarkets.length} 个市场 {lastUpdate && `• 更新于 ${new Date(lastUpdate).toLocaleTimeString('zh-CN')}`}

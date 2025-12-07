@@ -5,6 +5,22 @@ import { useCountdownStore, type CountdownMarket, type SortField } from '@/lib/s
 import { useMemo } from 'react';
 import Image from 'next/image';
 
+const CATEGORY_CONFIG: Record<string, string> = {
+  politics: '政治',
+  sports: '体育',
+  finance: '金融',
+  crypto: '加密',
+  geopolitics: '地缘政治',
+  earnings: '财报',
+  tech: '科技',
+  'pop-culture': '流行文化',
+  world: '世界',
+  economy: '经济',
+  'global-elections': '全球选举',
+  mentions: '提及',
+  others: '其他'
+};
+
 export function MarketTable() {
   const { filteredMarkets, expandedEvents, toggleEventExpand, filter, setSorting, loading, currentPage, pageSize, setCurrentPage, setPageSize } = useCountdownStore();
 
@@ -82,7 +98,7 @@ export function MarketTable() {
     if (image) {
       return (
         <div className="relative w-9 h-9 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-          <Image src={image} alt={title} fill className="object-cover" />
+          <Image src={image} alt={title} fill sizes="36px" className="object-cover" />
         </div>
       );
     }
@@ -173,20 +189,25 @@ export function MarketTable() {
                 <div className="flex items-center gap-3 min-w-0">
                   <MarketIcon title={market.eventTitle || market.question} image={market.image} />
                   <div className="flex-1 min-w-0">
-                    <a
-                      href={`https://polymarket.com/event/${market.eventSlug || market.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-gray-900 hover:text-blue-600 inline-flex items-center gap-1.5 group transition-colors"
-                    >
-                      <span className="truncate">{market.eventTitle || market.question}</span>
-                      <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-                    </a>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {market.category && (
-                        <span className="text-xs text-gray-500">{market.category}</span>
+                    <div className="inline-flex items-center gap-2">
+                      <a
+                        href={`https://polymarket.com/event/${market.eventSlug || market.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-gray-900 hover:text-blue-600 inline-flex items-center gap-1.5 group transition-colors"
+                      >
+                        <span className="truncate">{market.eventTitle || market.question}</span>
+                        <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                      </a>
+                      {market.negRisk && (
+                        <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded font-medium flex-shrink-0">NegRisk</span>
                       )}
                     </div>
+                    {market.category && (
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        {CATEGORY_CONFIG[market.category] || market.category}
+                      </div>
+                    )}
                   </div>
                 </div>
 
