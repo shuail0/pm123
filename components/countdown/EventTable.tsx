@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink } from 'lucide-react';
-import { useCountdownStore, type SortField } from '@/lib/store/countdown';
+import { useCountdownStore, type SortField, type CountdownMarket } from '@/lib/store/countdown';
 import Image from 'next/image';
 import { getTimeRangeStyle, type TimeRangeKey } from '@/lib/utils/timeRanges';
 
@@ -218,7 +218,7 @@ export function EventTable() {
                 <div className="flex flex-wrap gap-1.5">
                   {event.tagLabels && event.tagLabels.length > 0 ? (
                     <>
-                      {event.tagLabels.slice(0, 3).map((tag, idx) => (
+                      {event.tagLabels.slice(0, 3).map((tag: string, idx: number) => (
                         <span key={idx} className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full font-medium">
                           {tag}
                         </span>
@@ -236,7 +236,7 @@ export function EventTable() {
               </div>
 
               {/* 子市场 */}
-              {hasMarkets && isExpanded && event.markets.map((market, marketIndex) => {
+              {hasMarkets && isExpanded && event.markets.map((market: CountdownMarket, marketIndex: number) => {
                 const marketLiquidity = parseFloat(String(market.liquidity || '0'));
                 const marketVolume = parseFloat(String(market.volume || '0'));
                 const yesPrice = market.bestAsk ?? null;

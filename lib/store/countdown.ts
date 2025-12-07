@@ -3,11 +3,6 @@ import { TIME_RANGES, type TimeRangeKey } from '@/lib/utils/timeRanges';
 
 export type UrgencyLevel = 'critical' | 'urgent' | 'soon' | 'normal';
 
-export interface PriceHistory {
-  price: number;
-  timestamp: number;
-}
-
 export interface CountdownMarket {
   id: string;
   condition_id?: string;
@@ -68,10 +63,7 @@ export interface FilterOptions {
 interface CountdownStore {
   markets: CountdownEvent[];
   filteredMarkets: CountdownEvent[];
-  favorites: Set<string>;
   expandedEvents: Set<string>;
-  priceHistory: Record<string, PriceHistory[]>;
-  marketHistory: any[];
   filter: FilterOptions;
   loading: boolean;
   error: string | null;
@@ -82,12 +74,9 @@ interface CountdownStore {
 
   setMarkets: (markets: CountdownEvent[]) => void;
   setFilteredMarkets: (markets: CountdownEvent[]) => void;
-  toggleFavorite: (marketId: string) => void;
   toggleEventExpand: (eventId: string) => void;
   setFilter: (filter: Partial<FilterOptions>) => void;
   setSorting: (field: SortField, direction?: SortDirection) => void;
-  updatePriceHistory: (marketId: string, price: number) => void;
-  addMarketHistory: (market: any) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setLastUpdate: (timestamp: number) => void;
@@ -95,16 +84,11 @@ interface CountdownStore {
   setCurrentPage: (page: number) => void;
   setPageSize: (size: number) => void;
   applyFilters: () => void;
-  loadFromLocalStorage: () => void;
-  saveToLocalStorage: () => void;
 }
 
 export const useCountdownStore = create<CountdownStore>()((set, get) => ({
   markets: [],
   filteredMarkets: [],
-  favorites: new Set<string>(),
-  priceHistory: {},
-  marketHistory: [],
   filter: {
     status: 'active',
     timePeriod: 'all',
@@ -131,18 +115,6 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
 
   setFilteredMarkets: (filteredMarkets) => set({ filteredMarkets }),
 
-  toggleFavorite: (marketId) => {
-    const favorites = new Set(get().favorites);
-    if (favorites.has(marketId)) {
-      favorites.delete(marketId);
-    } else {
-      favorites.add(marketId);
-    }
-    set({ favorites });
-    get().saveToLocalStorage();
-    get().applyFilters();
-  },
-
   toggleEventExpand: (eventId) => {
     const expandedEvents = new Set(get().expandedEvents);
     if (expandedEvents.has(eventId)) {
@@ -163,31 +135,6 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
     const newDirection = direction || (currentFilter.sortField === field && currentFilter.sortDirection === 'asc' ? 'desc' : 'asc');
     set({ filter: { ...currentFilter, sortField: field, sortDirection: newDirection } });
     get().applyFilters();
-  },
-
-  updatePriceHistory: (marketId, price) => {
-    const priceHistory = { ...get().priceHistory };
-    if (!priceHistory[marketId]) {
-      priceHistory[marketId] = [];
-    }
-
-    const history = priceHistory[marketId];
-    const lastEntry = history[history.length - 1];
-
-    if (!lastEntry || Math.abs(lastEntry.price - price) > 0.001) {
-      history.push({ price, timestamp: Date.now() });
-      if (history.length > 100) history.shift();
-      set({ priceHistory });
-      get().saveToLocalStorage();
-    }
-  },
-
-  addMarketHistory: (market) => {
-    const marketHistory = [...get().marketHistory];
-    marketHistory.unshift(market);
-    if (marketHistory.length > 50) marketHistory.pop();
-    set({ marketHistory });
-    get().saveToLocalStorage();
   },
 
   setLoading: (loading) => set({ loading }),
@@ -299,32 +246,5 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
     });
 
     set({ filteredMarkets: filtered });
-  },
-
-  loadFromLocalStorage: () => {
-    if (typeof window === 'undefined') return;
-    try {
-      const favs = localStorage.getItem('pm123_countdown_favorites');
-      const prices = localStorage.getItem('pm123_countdown_price_history');
-      const history = localStorage.getItem('pm123_countdown_market_history');
-
-      if (favs) set({ favorites: new Set(JSON.parse(favs)) });
-      if (prices) set({ priceHistory: JSON.parse(prices) });
-      if (history) set({ marketHistory: JSON.parse(history) });
-    } catch (e) {
-      console.error('Failed to load from localStorage:', e);
-    }
-  },
-
-  saveToLocalStorage: () => {
-    if (typeof window === 'undefined') return;
-    try {
-      const { favorites, priceHistory, marketHistory } = get();
-      localStorage.setItem('pm123_countdown_favorites', JSON.stringify([...favorites]));
-      localStorage.setItem('pm123_countdown_price_history', JSON.stringify(priceHistory));
-      localStorage.setItem('pm123_countdown_market_history', JSON.stringify(marketHistory));
-    } catch (e) {
-      console.error('Failed to save to localStorage:', e);
-    }
   },
 }));

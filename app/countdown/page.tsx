@@ -14,7 +14,6 @@ export default function CountdownPage() {
     setError,
     setLastUpdate,
     setCurrentTime,
-    loadFromLocalStorage,
     filteredMarkets,
     loading,
     error,
@@ -25,10 +24,6 @@ export default function CountdownPage() {
   const marketCount = useMemo(() =>
     filteredMarkets.reduce((sum, e) => sum + (e.marketCount || 0), 0)
   , [filteredMarkets]);
-
-  useEffect(() => {
-    loadFromLocalStorage();
-  }, [loadFromLocalStorage]);
 
   const fetchData = async () => {
     try {
