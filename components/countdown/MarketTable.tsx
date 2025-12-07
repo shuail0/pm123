@@ -23,7 +23,7 @@ const CATEGORY_CONFIG: Record<string, string> = {
 };
 
 export function MarketTable() {
-  const { filteredMarkets, expandedEvents, toggleEventExpand, filter, setSorting, loading, currentPage, pageSize, setCurrentPage, setPageSize } = useCountdownStore();
+  const { filteredMarkets, markets, expandedEvents, toggleEventExpand, filter, setSorting, loading, currentPage, pageSize, setCurrentPage, setPageSize } = useCountdownStore();
 
   // 将市场按事件分组，识别系列事件（如 Crypto Up or Down 的不同时间段）
   const groupedMarkets = useMemo(() => {
@@ -170,7 +170,7 @@ export function MarketTable() {
 
       {/* 表体 - 带滚动 */}
       <div className="divide-y divide-gray-100 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 400px)' }}>
-        {loading && (
+        {loading && markets.length === 0 && (
           <div className="px-4 py-16">
             <div className="flex flex-col items-center gap-4">
               <div className="w-64 h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -299,14 +299,14 @@ export function MarketTable() {
               </div>
 
               {/* 子市场 */}
-              {hasChildren && isExpanded && market._childMarkets!.filter(child => child.closed !== true).map(child => {
+              {hasChildren && isExpanded && market._childMarkets!.filter(child => child.closed !== true).map((child, childIndex) => {
                 const childLiquidity = parseFloat(String(child.liquidity || child.liquidityNum || '0'));
                 const childVolume = parseFloat(String(child.volume || child.volumeNum || '0'));
                 const price = child.outcomePrices ? JSON.parse(child.outcomePrices)[0] : null;
 
                 return (
                   <div
-                    key={child.id}
+                    key={`${market.eventId || market.id}-${child.id}-${childIndex}`}
                     className="grid grid-cols-[48px,2fr,1fr,1fr,1fr,1fr,140px,1.2fr] gap-4 px-4 py-2.5 items-center bg-gray-50/30 border-l-2 border-blue-400 ml-12"
                   >
                     <div></div>

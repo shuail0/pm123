@@ -17,6 +17,7 @@ export default function CountdownPage() {
     loadFromLocalStorage,
     filteredMarkets,
     loading,
+    error,
     lastUpdate
   } = useCountdownStore();
 
@@ -49,13 +50,16 @@ export default function CountdownPage() {
       });
 
       const res = await fetch(`/api/events?${params}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${res.status}`);
+      }
       const markets = await res.json();
       setMarkets(markets);
       setLastUpdate(Date.now());
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch markets:', error);
-      setError('加载市场数据失败');
+      setError(error.message?.includes('Network') ? '网络连接失败，请稍后重试' : '加载市场数据失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -116,6 +120,12 @@ export default function CountdownPage() {
           transition={{ delay: 0.1 }}
           className="space-y-4"
         >
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+              <span>{error}</span>
+              <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">✕</button>
+            </div>
+          )}
           <AdvancedFilterBar />
           <MarketTable />
         </motion.div>
