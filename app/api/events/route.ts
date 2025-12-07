@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { PolymarketGammaClient } from '@/lib/polymarket';
 import { getTimeRange } from '@/lib/utils/timeRanges';
+import { OFFICIAL_CATEGORIES } from '@/lib/constants/categories';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -110,8 +111,6 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
-const OFFICIAL_CATEGORIES = ['politics', 'sports', 'finance', 'crypto', 'geopolitics', 'earnings', 'tech', 'pop-culture', 'world', 'economy', 'global-elections', 'mentions'];
 
 function processEventsForCountdown(events: any[]) {
   const now = Date.now();
