@@ -2,8 +2,6 @@ import { NextRequest } from 'next/server';
 import { PolymarketGammaClient } from '@/lib/polymarket';
 import { getTimeRange } from '@/lib/utils/timeRanges';
 
-const MIN_LIQUIDITY = 1000;
-
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 10;
@@ -117,37 +115,29 @@ const OFFICIAL_CATEGORIES = ['politics', 'sports', 'finance', 'crypto', 'geopoli
 
 function processEventsForCountdown(events: any[]) {
   const now = Date.now();
-  const results: any[] = [];
 
-  for (const event of events) {
-    const deadline = new Date(event.endDate || event.end_date_min).getTime();
-    if (!deadline || deadline <= now) continue;
+  return events
+    .map(event => {
+      const deadline = new Date(event.endDate || event.end_date_min).getTime();
+      if (!deadline || deadline <= now) return null;
 
-    const hoursUntil = (deadline - now) / 3600000;
-    const urgency = getTimeRange(hoursUntil);
-    const category = event.tags?.find((tag: any) => OFFICIAL_CATEGORIES.includes(tag.slug))?.slug || 'others';
-    const deadlineISO = new Date(deadline).toISOString();
-    const tags = event.tags?.map((tag: any) => tag.label) || [];
-    const tagIds = event.tags?.map((tag: any) => parseInt(tag.id)) || [];
+      const activeMarkets = (event.markets || []).filter((m: any) => !m.closed);
+      if (activeMarkets.length === 0) return null;
 
-    for (const market of event.markets || []) {
-      if (parseFloat(String(market.liquidity || market.liquidityNum || '0')) < MIN_LIQUIDITY) continue;
+      const hoursUntil = (deadline - now) / 3600000;
 
-      results.push({
-        ...market,
-        eventId: event.id,
-        eventTitle: event.title,
-        eventSlug: event.slug,
-        category,
-        tags,
-        tagIds,
-        _deadline: deadlineISO,
-        _urgency: urgency,
-        _hoursUntil: hoursUntil,
-        endDate: deadlineISO,
-      });
-    }
-  }
-
-  return results.sort((a, b) => new Date(a._deadline).getTime() - new Date(b._deadline).getTime());
+      return {
+        ...event,
+        markets: activeMarkets,
+        deadline: new Date(deadline).toISOString(),
+        hoursUntil,
+        urgency: getTimeRange(hoursUntil),
+        category: event.tags?.find((tag: any) => OFFICIAL_CATEGORIES.includes(tag.slug))?.slug || 'others',
+        tagLabels: event.tags?.map((tag: any) => tag.label) || [],
+        tagIds: event.tags?.map((tag: any) => parseInt(tag.id)) || [],
+        marketCount: activeMarkets.length,
+      };
+    })
+    .filter(Boolean)
+    .sort((a: any, b: any) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
 }

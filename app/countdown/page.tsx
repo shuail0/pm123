@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Clock, RefreshCw } from 'lucide-react';
 import { useCountdownStore } from '@/lib/store/countdown';
 import { AdvancedFilterBar } from '@/components/countdown/AdvancedFilterBar';
-import { MarketTable } from '@/components/countdown/MarketTable';
+import { EventTable } from '@/components/countdown/EventTable';
 
 export default function CountdownPage() {
   const {
@@ -21,14 +21,10 @@ export default function CountdownPage() {
     lastUpdate
   } = useCountdownStore();
 
-  // 计算唯一的 event 数量
-  const uniqueEventCount = useMemo(() => {
-    const eventIds = new Set<string>();
-    filteredMarkets.forEach(m => {
-      if (m.eventId) eventIds.add(m.eventId);
-    });
-    return eventIds.size;
-  }, [filteredMarkets]);
+  const eventCount = filteredMarkets.length;
+  const marketCount = useMemo(() =>
+    filteredMarkets.reduce((sum, e) => sum + (e.marketCount || 0), 0)
+  , [filteredMarkets]);
 
   useEffect(() => {
     loadFromLocalStorage();
@@ -94,7 +90,7 @@ export default function CountdownPage() {
                   实时展示价格、成交量、流动性、结束时间等关键数据，掌握尾盘动态，利用最后时刻的信息优势获利。
                 </p>
                 <p className="text-gray-500 text-xs mt-1.5">
-                  {uniqueEventCount} 个事件 • {filteredMarkets.length} 个市场 {lastUpdate && `• 更新于 ${new Date(lastUpdate).toLocaleTimeString('zh-CN')}`}
+                  {eventCount} 个事件 • {marketCount} 个市场 {lastUpdate && `• 更新于 ${new Date(lastUpdate).toLocaleTimeString('zh-CN')}`}
                 </p>
               </div>
             </div>
@@ -127,7 +123,7 @@ export default function CountdownPage() {
             </div>
           )}
           <AdvancedFilterBar />
-          <MarketTable />
+          <EventTable />
         </motion.div>
       </div>
     </main>

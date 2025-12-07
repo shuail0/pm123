@@ -10,36 +10,40 @@ export interface PriceHistory {
 
 export interface CountdownMarket {
   id: string;
-  condition_id: string;
+  condition_id?: string;
   question: string;
   groupItemTitle?: string;
   description?: string;
-  category?: string;
   image?: string;
   liquidity?: string | number;
-  liquidityNum?: number;
   volume?: string | number;
-  volumeNum?: number;
   volume24hr?: string | number;
   outcomePrices?: string;
-  lastTradePrice?: string;
-  endDate?: string;
-  endDateIso?: string;
-  gameStartTime?: string;
+  lastTradePrice?: string | number;
+  bestBid?: number;
+  bestAsk?: number;
   active?: boolean;
   closed?: boolean;
-  archived?: boolean;
   negRisk?: boolean;
-  tags?: string[];
+}
+
+export interface CountdownEvent {
+  id: string;
+  title: string;
+  slug: string;
+  category: string;
+  tags?: any[];
+  tagLabels?: string[];
   tagIds?: number[];
-  eventId?: string;
-  eventTitle?: string;
-  eventSlug?: string;
-  _deadline?: Date;
-  _urgency?: UrgencyLevel;
-  _hoursUntil?: number;
-  _isEvent?: boolean;
-  _childMarkets?: CountdownMarket[];
+  deadline: string;
+  hoursUntil: number;
+  urgency: string;
+  negRisk?: boolean;
+  markets: CountdownMarket[];
+  marketCount: number;
+  volume?: number;
+  liquidity?: number;
+  volume24hr?: number;
 }
 
 export type SortField = 'market' | 'liquidity' | 'volume' | 'volume24hr' | 'ends' | 'urgency';
@@ -62,8 +66,8 @@ export interface FilterOptions {
 }
 
 interface CountdownStore {
-  markets: CountdownMarket[];
-  filteredMarkets: CountdownMarket[];
+  markets: CountdownEvent[];
+  filteredMarkets: CountdownEvent[];
   favorites: Set<string>;
   expandedEvents: Set<string>;
   priceHistory: Record<string, PriceHistory[]>;
@@ -76,8 +80,8 @@ interface CountdownStore {
   currentPage: number;
   pageSize: number;
 
-  setMarkets: (markets: CountdownMarket[]) => void;
-  setFilteredMarkets: (markets: CountdownMarket[]) => void;
+  setMarkets: (markets: CountdownEvent[]) => void;
+  setFilteredMarkets: (markets: CountdownEvent[]) => void;
   toggleFavorite: (marketId: string) => void;
   toggleEventExpand: (eventId: string) => void;
   setFilter: (filter: Partial<FilterOptions>) => void;
@@ -202,115 +206,93 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
     const { markets, filter } = get();
     let filtered = [...markets];
 
-    // NegRisk 筛选
     if (filter.negRiskFilter === 'neg_risk') {
-      filtered = filtered.filter(m => m.negRisk === true);
+      filtered = filtered.filter(e => e.negRisk === true);
     } else if (filter.negRiskFilter === 'non_neg_risk') {
-      filtered = filtered.filter(m => !m.negRisk);
+      filtered = filtered.filter(e => !e.negRisk);
     }
 
-    // 分类筛选（直接使用 API 的 category 字段）
     if (filter.selectedCategories.length > 0) {
-      filtered = filtered.filter(m => m.category && filter.selectedCategories.includes(m.category));
+      filtered = filtered.filter(e => filter.selectedCategories.includes(e.category));
     }
 
-    // 搜索过滤
     if (filter.searchQuery) {
       const query = filter.searchQuery.toLowerCase();
-      filtered = filtered.filter(m =>
-        m.question?.toLowerCase().includes(query) ||
-        m.eventTitle?.toLowerCase().includes(query) ||
-        m.category?.toLowerCase().includes(query) ||
-        m.description?.toLowerCase().includes(query)
+      filtered = filtered.filter(e =>
+        e.title.toLowerCase().includes(query) ||
+        e.category.toLowerCase().includes(query) ||
+        e.tagLabels?.some(t => t.toLowerCase().includes(query))
       );
     }
 
-    // 状态过滤
-    if (filter.status !== 'all') {
-      filtered = filtered.filter(m =>
-        filter.status === 'active' ? m.active !== false : m.closed === true
-      );
-    }
-
-    // 时间周期过滤
     if (filter.timePeriod !== 'all') {
       const maxHours = TIME_RANGES[filter.timePeriod as TimeRangeKey].hours;
-      filtered = filtered.filter(m => m._hoursUntil !== undefined && m._hoursUntil < maxHours);
+      filtered = filtered.filter(e => e.hoursUntil < maxHours);
     }
 
-    // 标签过滤
     if (filter.tags.length > 0) {
-      filtered = filtered.filter(m =>
-        m.tags?.some(tag => filter.tags.includes(tag))
+      filtered = filtered.filter(e =>
+        e.tagLabels?.some(tag => filter.tags.includes(tag))
       );
     }
 
-    // 流动性过滤
     if (filter.minLiquidity) {
-      filtered = filtered.filter(m => {
-        const liquidity = parseFloat(String(m.liquidity || m.liquidityNum || '0'));
-        return liquidity >= filter.minLiquidity!;
-      });
+      filtered = filtered.filter(e => (e.liquidity || 0) >= filter.minLiquidity!);
     }
 
-    // 24h成交量过滤
     if (filter.minVolume24hr !== undefined || filter.maxVolume24hr !== undefined) {
-      filtered = filtered.filter(m => {
-        const vol24 = parseFloat(String(m.volume24hr || '0'));
+      filtered = filtered.filter(e => {
+        const vol24 = e.volume24hr || 0;
         if (filter.minVolume24hr !== undefined && vol24 < filter.minVolume24hr) return false;
         if (filter.maxVolume24hr !== undefined && vol24 > filter.maxVolume24hr) return false;
         return true;
       });
     }
 
-    // 总成交量过滤
     if (filter.minVolume !== undefined || filter.maxVolume !== undefined) {
-      filtered = filtered.filter(m => {
-        const vol = parseFloat(String(m.volume || m.volumeNum || '0'));
+      filtered = filtered.filter(e => {
+        const vol = e.volume || 0;
         if (filter.minVolume !== undefined && vol < filter.minVolume) return false;
         if (filter.maxVolume !== undefined && vol > filter.maxVolume) return false;
         return true;
       });
     }
 
-    // 排序
     filtered.sort((a, b) => {
       let aVal: any, bVal: any;
 
       switch (filter.sortField) {
         case 'market':
-          aVal = a.eventTitle || a.question;
-          bVal = b.eventTitle || b.question;
+          aVal = a.title;
+          bVal = b.title;
           break;
         case 'liquidity':
-          aVal = parseFloat(String(a.liquidity || a.liquidityNum || '0'));
-          bVal = parseFloat(String(b.liquidity || b.liquidityNum || '0'));
+          aVal = a.liquidity || 0;
+          bVal = b.liquidity || 0;
           break;
         case 'volume':
-          aVal = parseFloat(String(a.volume || a.volumeNum || '0'));
-          bVal = parseFloat(String(b.volume || b.volumeNum || '0'));
+          aVal = a.volume || 0;
+          bVal = b.volume || 0;
           break;
         case 'volume24hr':
-          aVal = parseFloat(String(a.volume24hr || '0'));
-          bVal = parseFloat(String(b.volume24hr || '0'));
+          aVal = a.volume24hr || 0;
+          bVal = b.volume24hr || 0;
           break;
         case 'ends':
-          aVal = a._deadline?.getTime() || 0;
-          bVal = b._deadline?.getTime() || 0;
+          aVal = new Date(a.deadline).getTime();
+          bVal = new Date(b.deadline).getTime();
           break;
         case 'urgency':
-          const urgencyMap = { critical: 0, urgent: 1, soon: 2, normal: 3 };
-          aVal = urgencyMap[a._urgency || 'normal'];
-          bVal = urgencyMap[b._urgency || 'normal'];
+          const urgencyMap: Record<string, number> = { critical: 0, urgent: 1, soon: 2, normal: 3 };
+          aVal = urgencyMap[a.urgency] ?? 3;
+          bVal = urgencyMap[b.urgency] ?? 3;
           break;
         default:
           return 0;
       }
 
       if (typeof aVal === 'string') {
-        return filter.sortDirection === 'asc'
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal);
+        return filter.sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
       }
 
       return filter.sortDirection === 'asc' ? aVal - bVal : bVal - aVal;

@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, X, Filter } from 'lucide-react';
+import { Search, Filter } from 'lucide-react';
 import { useCountdownStore } from '@/lib/store/countdown';
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { getFilterOptions } from '@/lib/utils/timeRanges';
@@ -152,7 +152,7 @@ export function AdvancedFilterBar() {
   const availableTags = useMemo(() => {
     const tags = new Set<string>();
     filteredMarkets.forEach(m => {
-      m.tags?.forEach(tag => tags.add(tag));
+      m.tagLabels?.forEach(tag => tags.add(tag));
     });
     return Array.from(tags).sort();
   }, [filteredMarkets]);
@@ -336,7 +336,7 @@ export function AdvancedFilterBar() {
                   <span className="text-xs font-semibold text-gray-700">已选 ({filter.tags.length}/{availableTags.length})</span>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setFilter({ tags: availableTags })}
+                      onClick={() => setFilter({ tags: [...availableTags] })}
                       className="text-xs text-polyBlue hover:text-polyBlue/80 font-medium"
                     >
                       全选
@@ -407,7 +407,7 @@ export function AdvancedFilterBar() {
                   <span className="text-xs font-semibold text-gray-700">已选 ({filter.selectedCategories.length}/{availableCategories.length})</span>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setFilter({ selectedCategories: availableCategories })}
+                      onClick={() => setFilter({ selectedCategories: [...availableCategories] })}
                       className="text-xs text-polyBlue hover:text-polyBlue/80 font-medium"
                     >
                       全选
@@ -450,22 +450,6 @@ export function AdvancedFilterBar() {
           )}
         </div>
       </div>
-
-      {/* 已选分类 */}
-      {filter.selectedCategories.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-gray-500">已选分类:</span>
-          {filter.selectedCategories.map(cat => (
-            <span key={cat} className="inline-flex items-center gap-1 px-2.5 py-1 bg-polyBlue/10 text-polyBlue text-xs font-medium rounded-md">
-              {CATEGORY_CONFIG[cat]}({cat})
-              <button onClick={() => setFilter({ selectedCategories: filter.selectedCategories.filter(c => c !== cat) })} className="hover:bg-polyBlue/20 rounded p-0.5">
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          ))}
-          <button onClick={() => setFilter({ selectedCategories: [] })} className="text-xs text-gray-500 hover:text-gray-700 underline">清除全部</button>
-        </div>
-      )}
     </div>
   );
 }

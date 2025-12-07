@@ -15,15 +15,14 @@ export default function Navigation() {
   return (
     <nav className="sticky top-0 z-50 bg-gray-1 border-b border-gray-3">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2 group">
+        <div className="flex items-center h-16 relative">
+          {/* Logo - Left */}
+          <Link href="/" className="flex items-center group">
             <Logo className="w-9 h-9 transition-transform group-hover:scale-110" />
-            <span className="text-xl font-bold text-white">PM123</span>
           </Link>
 
           {/* Center Navigation */}
-          <div className="flex items-center space-x-1">
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center space-x-1">
             {navItems.map((item) => (
               <Link
                 key={item.href}
@@ -40,7 +39,7 @@ export default function Navigation() {
           </div>
 
           {/* Right side - Twitter Link */}
-          <div className="flex items-center space-x-4">
+          <div className="ml-auto flex items-center space-x-4">
             <a
               href="https://x.com/ShuaiWeb3"
               target="_blank"

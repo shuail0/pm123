@@ -1,8 +1,7 @@
 'use client';
 
 import { ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink } from 'lucide-react';
-import { useCountdownStore, type CountdownMarket, type SortField } from '@/lib/store/countdown';
-import { useMemo } from 'react';
+import { useCountdownStore, type SortField } from '@/lib/store/countdown';
 import Image from 'next/image';
 import { getTimeRangeStyle, type TimeRangeKey } from '@/lib/utils/timeRanges';
 
@@ -22,65 +21,11 @@ const CATEGORY_CONFIG: Record<string, string> = {
   others: '其他'
 };
 
-export function MarketTable() {
+export function EventTable() {
   const { filteredMarkets, markets, expandedEvents, toggleEventExpand, filter, setSorting, loading, currentPage, pageSize, setCurrentPage, setPageSize } = useCountdownStore();
 
-  // 将市场按事件分组，识别系列事件（如 Crypto Up or Down 的不同时间段）
-  const groupedMarkets = useMemo(() => {
-    // 第一步：提取所有 event，按 eventId 去重
-    const eventsMap = new Map<string, any>();
-    filteredMarkets.forEach(market => {
-      const eventId = market.eventId;
-      if (eventId && !eventsMap.has(eventId)) {
-        eventsMap.set(eventId, {
-          eventId,
-          eventTitle: market.eventTitle,
-          eventSlug: market.eventSlug,
-          category: market.category,
-          tags: market.tags,
-          markets: []
-        });
-      }
-      if (eventId) {
-        eventsMap.get(eventId)!.markets.push(market);
-      }
-    });
-
-    // 第二步：识别系列事件（标题模式相似的事件）
-    const seriesGroups = new Map<string, any[]>();
-
-    eventsMap.forEach(event => {
-      // 提取系列名称：移除日期、时间等模式
-      let seriesKey = event.eventTitle
-        .replace(/\s*-\s*December\s+\d+.*$/i, '')  // 移除 "- December 7, ..."
-        .replace(/\s*December\s+\d+.*$/i, '')       // 移除 "December 7, ..."
-        .replace(/\s*\d{4}-\d{2}-\d{2}.*$/i, '')    // 移除日期
-        .replace(/\s*by\s+\w+\s+\d+,\s+\d{4}$/i, '') // 移除 "by March 31, 2026"
-        .trim();
-
-      if (!seriesGroups.has(seriesKey)) {
-        seriesGroups.set(seriesKey, []);
-      }
-      seriesGroups.get(seriesKey)!.push(event);
-    });
-
-    // 第三步：为每个系列创建父级行
-    return Array.from(seriesGroups.entries()).map(([seriesTitle, events]) => {
-      // 合并所有 markets
-      const allMarkets = events.flatMap(e => e.markets);
-      const firstMarket = allMarkets[0];
-
-      const eventRow: CountdownMarket = {
-        ...firstMarket,
-        eventTitle: seriesTitle, // 使用系列标题
-        _isEvent: true,
-        _childMarkets: events.length > 1 ? allMarkets : (allMarkets.length > 1 ? allMarkets : undefined),
-        liquidity: allMarkets.reduce((sum, m) => sum + parseFloat(String(m.liquidity || m.liquidityNum || '0')), 0),
-        volume: allMarkets.reduce((sum, m) => sum + parseFloat(String(m.volume || m.volumeNum || '0')), 0),
-      };
-      return eventRow;
-    });
-  }, [filteredMarkets]);
+  // filteredMarkets 现在直接就是事件数组了
+  const groupedMarkets = filteredMarkets as any[];
 
   // 分页计算
   const totalPages = Math.ceil(groupedMarkets.length / pageSize);
@@ -157,14 +102,13 @@ export function MarketTable() {
       {/* 表格容器 - 带滚动 */}
       <div className="overflow-hidden flex-1">
       {/* 表头 */}
-      <div className="grid grid-cols-[48px,2fr,1fr,1fr,1fr,1fr,140px,1.2fr] gap-4 px-4 py-2.5 bg-gray-50/80 border-b border-gray-200 text-xs font-semibold text-gray-600 tracking-wide">
+      <div className="grid grid-cols-[48px,2fr,1fr,1fr,1fr,140px,1.2fr] gap-4 px-4 py-2.5 bg-gray-50/80 border-b border-gray-200 text-xs font-semibold text-gray-600 tracking-wide">
         <div></div>
-        <div><SortButton field="market" label="市场" /></div>
+        <div><SortButton field="market" label="事件" /></div>
         <div className="text-right"><SortButton field="volume24hr" label="24h成交量" /></div>
         <div className="text-right"><SortButton field="volume" label="总成交量" /></div>
         <div className="text-right"><SortButton field="liquidity" label="流动性" /></div>
         <div className="text-center"><SortButton field="ends" label="结束时间(UTC)" /></div>
-        <div className="text-center"><SortButton field="urgency" label="时间范围" /></div>
         <div className="text-left">标签</div>
       </div>
 
@@ -187,20 +131,18 @@ export function MarketTable() {
           </div>
         )}
 
-        {paginatedMarkets.map(market => {
-          const isExpanded = expandedEvents.has(market.eventId || market.id);
-          const hasChildren = market._childMarkets && market._childMarkets.length >= 1;
-          const liquidity = parseFloat(String(market.liquidity || market.liquidityNum || '0'));
-          const volume = parseFloat(String(market.volume || market.volumeNum || '0'));
+        {paginatedMarkets.map(event => {
+          const isExpanded = expandedEvents.has(event.id);
+          const hasMarkets = event.markets && event.markets.length > 0;
 
           return (
-            <div key={market.eventId || market.id} className="hover:bg-gray-50/50 transition-colors">
+            <div key={event.id} className="hover:bg-gray-50/50 transition-colors">
               {/* 事件行 */}
-              <div className="grid grid-cols-[48px,2fr,1fr,1fr,1fr,1fr,140px,1.2fr] gap-4 px-4 py-3 items-center">
+              <div className="grid grid-cols-[48px,2fr,1fr,1fr,1fr,140px,1.2fr] gap-4 px-4 py-3 items-center">
                 {/* 展开按钮 */}
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => toggleEventExpand(market.eventId || market.id)}
+                    onClick={() => toggleEventExpand(event.id)}
                     className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors"
                   >
                     {isExpanded ?
@@ -212,25 +154,25 @@ export function MarketTable() {
 
                 {/* 标题 + 图标 */}
                 <div className="flex items-center gap-3 min-w-0">
-                  <MarketIcon title={market.eventTitle || market.question} image={market.image} />
+                  <MarketIcon title={event.title} image={event.markets[0]?.image} />
                   <div className="flex-1 min-w-0">
                     <div className="inline-flex items-center gap-2">
                       <a
-                        href={`https://polymarket.com/event/${market.eventSlug || market.id}`}
+                        href={`https://polymarket.com/event/${event.slug}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="font-medium text-gray-900 hover:text-blue-600 inline-flex items-center gap-1.5 group transition-colors"
                       >
-                        <span className="truncate">{market.eventTitle || market.question}</span>
+                        <span className="truncate">{event.title}</span>
                         <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                       </a>
-                      {market.negRisk && (
+                      {event.negRisk && (
                         <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded font-medium flex-shrink-0">NegRisk</span>
                       )}
                     </div>
-                    {market.category && (
+                    {event.category && (
                       <div className="text-xs text-gray-500 mt-0.5">
-                        {CATEGORY_CONFIG[market.category] || market.category}
+                        {CATEGORY_CONFIG[event.category] || event.category}
                       </div>
                     )}
                   </div>
@@ -238,57 +180,52 @@ export function MarketTable() {
 
                 {/* 24h成交量 */}
                 <div className="text-right space-y-1">
-                  {market.volume24hr ? (
-                    <div className="text-sm font-semibold text-gray-900">{formatCurrency(parseFloat(String(market.volume24hr)))}</div>
+                  {(event.volume24hr || 0) > 0 ? (
+                    <div className="text-sm font-semibold text-gray-900">{formatCurrency(event.volume24hr || 0)}</div>
                   ) : (
                     <div className="text-sm text-gray-400">-</div>
                   )}
                 </div>
 
-                {/* 交易量 */}
+                {/* 总成交量 */}
                 <div className="text-right">
-                  <div className="text-sm font-semibold text-gray-900">{formatCurrency(volume)}</div>
+                  <div className="text-sm font-semibold text-gray-900">{formatCurrency(event.volume || 0)}</div>
                 </div>
 
                 {/* 流动性 */}
                 <div className="text-right">
-                  <div className="text-sm font-semibold text-gray-900">{formatCurrency(liquidity)}</div>
+                  <div className="text-sm font-semibold text-gray-900">{formatCurrency(event.liquidity || 0)}</div>
                 </div>
 
                 {/* 结束时间 */}
                 <div className="text-center space-y-1">
                   <div className="text-sm font-medium text-gray-900">
-                    {market._deadline ? new Date(market._deadline).toISOString().slice(0, 16).replace('T', ' ') : '-'}
+                    {event.deadline ? new Date(event.deadline).toISOString().slice(0, 16).replace('T', ' ') : '-'}
                   </div>
-                  {market._hoursUntil !== undefined && (
+                  {event.hoursUntil !== undefined && (
                     <div className="text-xs text-gray-500">
-                      {market._hoursUntil < 1
-                        ? `${Math.round(market._hoursUntil * 60)}分钟后`
-                        : market._hoursUntil < 24
-                        ? `${market._hoursUntil.toFixed(1)}小时后`
-                        : `${Math.round(market._hoursUntil / 24)}天后`
+                      {event.hoursUntil < 1
+                        ? `${Math.round(event.hoursUntil * 60)}分钟后`
+                        : event.hoursUntil < 24
+                        ? `${event.hoursUntil.toFixed(1)}小时后`
+                        : `${Math.round(event.hoursUntil / 24)}天后`
                       }
                     </div>
                   )}
                 </div>
 
-                {/* 时间范围 */}
-                <div className="flex justify-center">
-                  <TimingBadge urgency={market._urgency || 'normal'} />
-                </div>
-
                 {/* 标签 */}
                 <div className="flex flex-wrap gap-1.5">
-                  {market.tags && market.tags.length > 0 ? (
+                  {event.tagLabels && event.tagLabels.length > 0 ? (
                     <>
-                      {market.tags.slice(0, 3).map(tag => (
-                        <span key={tag} className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full font-medium">
+                      {event.tagLabels.slice(0, 3).map((tag, idx) => (
+                        <span key={idx} className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full font-medium">
                           {tag}
                         </span>
                       ))}
-                      {market.tags.length > 3 && (
+                      {event.tagLabels.length > 3 && (
                         <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full font-medium">
-                          +{market.tags.length - 3}
+                          +{event.tagLabels.length - 3}
                         </span>
                       )}
                     </>
@@ -299,79 +236,69 @@ export function MarketTable() {
               </div>
 
               {/* 子市场 */}
-              {hasChildren && isExpanded && market._childMarkets!.filter(child => child.closed !== true).map((child, childIndex) => {
-                const childLiquidity = parseFloat(String(child.liquidity || child.liquidityNum || '0'));
-                const childVolume = parseFloat(String(child.volume || child.volumeNum || '0'));
-                const price = child.outcomePrices ? JSON.parse(child.outcomePrices)[0] : null;
+              {hasMarkets && isExpanded && event.markets.map((market, marketIndex) => {
+                const marketLiquidity = parseFloat(String(market.liquidity || '0'));
+                const marketVolume = parseFloat(String(market.volume || '0'));
+                const yesPrice = market.bestAsk ?? null;
+                const noPrice = market.bestBid !== undefined ? 1 - market.bestBid : null;
 
                 return (
                   <div
-                    key={`${market.eventId || market.id}-${child.id}-${childIndex}`}
-                    className="grid grid-cols-[48px,2fr,1fr,1fr,1fr,1fr,140px,1.2fr] gap-4 px-4 py-2.5 items-center bg-gray-50/30 border-l-2 border-blue-400 ml-12"
+                    key={`${event.id}-${market.id}-${marketIndex}`}
+                    className="grid grid-cols-[48px,2fr,1fr,1fr,1fr,140px,1.2fr] gap-4 px-4 py-2.5 items-center bg-gray-50/30 border-l-2 border-blue-400 ml-12"
                   >
                     <div></div>
 
                     <div className="flex items-center gap-3 min-w-0 pl-2">
-                      <MarketIcon title={child.groupItemTitle || child.question} image={child.image} />
+                      <MarketIcon title={market.groupItemTitle || market.question} image={market.image} />
                       <div className="flex-1 min-w-0">
                         <a
-                          href={`https://polymarket.com/event/${child.eventSlug}?outcome=${child.id}`}
+                          href={`https://polymarket.com/event/${event.slug}?outcome=${market.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-sm text-gray-700 hover:text-blue-600 inline-flex items-center gap-1.5 group transition-colors"
                         >
-                          <span className="truncate">{child.groupItemTitle || child.question}</span>
+                          <span className="truncate">{market.groupItemTitle || market.question}</span>
                           <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                         </a>
-                        {price && (
-                          <div className="mt-1.5 flex items-center gap-2 text-xs">
-                            <span className="text-gray-600 font-medium w-8">Yes</span>
-                            <span className="text-blue-600 font-semibold w-12 text-center">${(parseFloat(price) * 100).toFixed(0)}¢</span>
-                            <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden max-w-[120px]">
-                              <div className="h-full bg-blue-500 rounded-full" style={{ width: `${parseFloat(price) * 100}%` }} />
+                        {yesPrice !== null && (
+                          <div className="mt-1.5 flex items-center gap-3 text-xs">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-gray-600 font-medium">Yes</span>
+                              <span className="text-blue-600 font-semibold">${(yesPrice * 100).toFixed(1)}¢</span>
                             </div>
-                            <span className="text-gray-600 font-medium w-6">No</span>
+                            <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden max-w-[100px]">
+                              <div className="h-full bg-blue-500 rounded-full" style={{ width: `${yesPrice * 100}%` }} />
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-gray-600 font-medium">No</span>
+                              <span className="text-red-600 font-semibold">${(noPrice! * 100).toFixed(1)}¢</span>
+                            </div>
                           </div>
                         )}
                       </div>
                     </div>
 
                     <div className="text-right">
-                      {child.volume24hr ? (
-                        <div className="text-sm text-gray-700">{formatCurrency(parseFloat(String(child.volume24hr)))}</div>
+                      {market.volume24hr ? (
+                        <div className="text-sm text-gray-700">{formatCurrency(parseFloat(String(market.volume24hr)))}</div>
                       ) : (
                         <div className="text-sm text-gray-400">-</div>
                       )}
                     </div>
 
                     <div className="text-right">
-                      <div className="text-sm text-gray-700">{formatCurrency(childVolume)}</div>
+                      <div className="text-sm text-gray-700">{formatCurrency(marketVolume)}</div>
                     </div>
 
                     <div className="text-right">
-                      <div className="text-sm text-gray-700">{formatCurrency(childLiquidity)}</div>
+                      <div className="text-sm text-gray-700">{formatCurrency(marketLiquidity)}</div>
                     </div>
 
-                    {/* 子市场结束时间 */}
                     <div className="text-center space-y-1">
                       <div className="text-sm text-gray-700">
-                        {child._deadline ? new Date(child._deadline).toISOString().slice(0, 16).replace('T', ' ') : '-'}
+                        {event.deadline ? new Date(event.deadline).toISOString().slice(0, 16).replace('T', ' ') : '-'}
                       </div>
-                      {child._hoursUntil !== undefined && (
-                        <div className="text-xs text-gray-500">
-                          {child._hoursUntil < 1
-                            ? `${Math.round(child._hoursUntil * 60)}分钟后`
-                            : child._hoursUntil < 24
-                            ? `${child._hoursUntil.toFixed(1)}小时后`
-                            : `${Math.round(child._hoursUntil / 24)}天后`
-                          }
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 子市场时间范围 */}
-                    <div className="flex justify-center">
-                      <TimingBadge urgency={child._urgency || 'normal'} />
                     </div>
 
                     <div></div>
