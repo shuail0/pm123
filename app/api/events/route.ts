@@ -120,7 +120,7 @@ function processEventsForCountdown(events: any[]) {
       const deadline = new Date(event.endDate || event.end_date_min).getTime();
       if (!deadline || deadline <= now) return null;
 
-      const activeMarkets = (event.markets || []).filter((m: any) => !m.closed);
+      const activeMarkets = (event.markets || []).filter((m: any) => !m.closed && m.active !== false);
       if (activeMarkets.length === 0) return null;
 
       const hoursUntil = (deadline - now) / 3600000;
