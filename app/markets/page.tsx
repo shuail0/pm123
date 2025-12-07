@@ -1,4 +1,4 @@
-import { PolymarketGammaClient } from "@/app/api/polymarket/gammaClient";
+import { PolymarketGammaClient } from "@/lib/polymarket";
 
 async function getMarkets() {
   const client = new PolymarketGammaClient();
