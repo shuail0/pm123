@@ -1,7 +1,12 @@
 import { NextRequest } from 'next/server';
 import { PolymarketGammaClient } from '@/lib/polymarket';
+import { getTimeRange } from '@/lib/utils/timeRanges';
 
 const MIN_LIQUIDITY = 1000;
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 10;
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,28 +22,61 @@ export async function GET(request: NextRequest) {
     let allEvents: any[] = [];
 
     if (fetchAll) {
-      console.log('🔄 开始分页获取所有事件...');
       const limit = 500;
-      let offset = 0;
-      let hasMore = true;
-      let pageCount = 0;
+      const BATCH_SIZE = 6; // 每批并行请求数
 
-      while (hasMore) {
-        pageCount++;
-        const events = await client.listEvents({
+      // 激进策略：直接并行请求前6批（0-3000条数据）
+      const initialBatch = Array.from({ length: BATCH_SIZE }, (_, i) =>
+        client.listEvents({
           closed: searchParams.get('closed') === 'true',
           active: searchParams.get('active') === 'true',
           end_date_min: searchParams.get('end_date_min') || undefined,
           order: searchParams.get('order') as any,
           ascending: searchParams.get('ascending') === 'true',
           limit,
-          offset,
+          offset: i * limit,
           exclude_tag_id: excludeTagIds
-        });
+        })
+      );
 
-        allEvents.push(...events);
-        hasMore = events.length >= limit;
-        offset += limit;
+      const initialResults = await Promise.all(initialBatch);
+
+      // 合并结果并检查是否还有更多数据
+      for (const events of initialResults) {
+        if (events.length > 0) allEvents.push(...events);
+      }
+
+      // 如果最后一批还是满的，继续获取
+      const lastBatch = initialResults[initialResults.length - 1];
+      if (lastBatch.length >= limit) {
+        let offset = BATCH_SIZE * limit;
+        while (true) {
+          const moreBatch = await Promise.all(
+            Array.from({ length: BATCH_SIZE }, (_, i) =>
+              client.listEvents({
+                closed: searchParams.get('closed') === 'true',
+                active: searchParams.get('active') === 'true',
+                end_date_min: searchParams.get('end_date_min') || undefined,
+                order: searchParams.get('order') as any,
+                ascending: searchParams.get('ascending') === 'true',
+                limit,
+                offset: offset + i * limit,
+                exclude_tag_id: excludeTagIds
+              })
+            )
+          );
+
+          let hasMore = false;
+          for (const events of moreBatch) {
+            if (events.length > 0) {
+              allEvents.push(...events);
+              if (events.length >= limit) hasMore = true;
+            }
+          }
+
+          if (!hasMore) break;
+          offset += BATCH_SIZE * limit;
+        }
       }
     } else {
       allEvents = await client.listEvents({
@@ -78,29 +116,38 @@ export async function GET(request: NextRequest) {
 const OFFICIAL_CATEGORIES = ['politics', 'sports', 'finance', 'crypto', 'geopolitics', 'earnings', 'tech', 'pop-culture', 'world', 'economy', 'global-elections', 'mentions'];
 
 function processEventsForCountdown(events: any[]) {
-  const now = new Date();
-  return events.flatMap(event => {
-    const eventDeadline = new Date(event.endDate || event.end_date_min);
-    if (!eventDeadline.getTime() || eventDeadline <= now) return [];
+  const now = Date.now();
+  const results: any[] = [];
 
-    const hoursUntil = (eventDeadline.getTime() - now.getTime()) / 3600000;
-    const urgency = hoursUntil < 1 ? 'critical' : hoursUntil < 24 ? 'urgent' : hoursUntil < 168 ? 'soon' : 'normal';
+  for (const event of events) {
+    const deadline = new Date(event.endDate || event.end_date_min).getTime();
+    if (!deadline || deadline <= now) continue;
+
+    const hoursUntil = (deadline - now) / 3600000;
+    const urgency = getTimeRange(hoursUntil);
     const category = event.tags?.find((tag: any) => OFFICIAL_CATEGORIES.includes(tag.slug))?.slug || 'others';
+    const deadlineISO = new Date(deadline).toISOString();
+    const tags = event.tags?.map((tag: any) => tag.label) || [];
+    const tagIds = event.tags?.map((tag: any) => parseInt(tag.id)) || [];
 
-    return (event.markets || [])
-      .filter((m: any) => parseFloat(String(m.liquidity || m.liquidityNum || '0')) >= MIN_LIQUIDITY)
-      .map((market: any) => ({
+    for (const market of event.markets || []) {
+      if (parseFloat(String(market.liquidity || market.liquidityNum || '0')) < MIN_LIQUIDITY) continue;
+
+      results.push({
         ...market,
         eventId: event.id,
         eventTitle: event.title,
         eventSlug: event.slug,
         category,
-        tags: event.tags?.map((tag: any) => tag.label) || [],
-        tagIds: event.tags?.map((tag: any) => parseInt(tag.id)) || [],
-        _deadline: eventDeadline.toISOString(),
+        tags,
+        tagIds,
+        _deadline: deadlineISO,
         _urgency: urgency,
         _hoursUntil: hoursUntil,
-        endDate: eventDeadline.toISOString(),
-      }));
-  }).sort((a, b) => new Date(a._deadline).getTime() - new Date(b._deadline).getTime());
+        endDate: deadlineISO,
+      });
+    }
+  }
+
+  return results.sort((a, b) => new Date(a._deadline).getTime() - new Date(b._deadline).getTime());
 }

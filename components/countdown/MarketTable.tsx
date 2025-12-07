@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, ExternalLin
 import { useCountdownStore, type CountdownMarket, type SortField } from '@/lib/store/countdown';
 import { useMemo } from 'react';
 import Image from 'next/image';
+import { getTimeRangeStyle, type TimeRangeKey } from '@/lib/utils/timeRanges';
 
 const CATEGORY_CONFIG: Record<string, string> = {
   politics: '政治',
@@ -24,27 +25,58 @@ const CATEGORY_CONFIG: Record<string, string> = {
 export function MarketTable() {
   const { filteredMarkets, expandedEvents, toggleEventExpand, filter, setSorting, loading, currentPage, pageSize, setCurrentPage, setPageSize } = useCountdownStore();
 
-  // 将市场按事件分组
+  // 将市场按事件分组，识别系列事件（如 Crypto Up or Down 的不同时间段）
   const groupedMarkets = useMemo(() => {
-    const groups = new Map<string, CountdownMarket[]>();
-
+    // 第一步：提取所有 event，按 eventId 去重
+    const eventsMap = new Map<string, any>();
     filteredMarkets.forEach(market => {
-      const key = market.eventId || market.id;
-      if (!groups.has(key)) {
-        groups.set(key, []);
+      const eventId = market.eventId;
+      if (eventId && !eventsMap.has(eventId)) {
+        eventsMap.set(eventId, {
+          eventId,
+          eventTitle: market.eventTitle,
+          eventSlug: market.eventSlug,
+          category: market.category,
+          tags: market.tags,
+          markets: []
+        });
       }
-      groups.get(key)!.push(market);
+      if (eventId) {
+        eventsMap.get(eventId)!.markets.push(market);
+      }
     });
 
-    // 转换为数组并为每个事件创建一个父级行
-    return Array.from(groups.entries()).map(([, markets]) => {
-      const firstMarket = markets[0];
+    // 第二步：识别系列事件（标题模式相似的事件）
+    const seriesGroups = new Map<string, any[]>();
+
+    eventsMap.forEach(event => {
+      // 提取系列名称：移除日期、时间等模式
+      let seriesKey = event.eventTitle
+        .replace(/\s*-\s*December\s+\d+.*$/i, '')  // 移除 "- December 7, ..."
+        .replace(/\s*December\s+\d+.*$/i, '')       // 移除 "December 7, ..."
+        .replace(/\s*\d{4}-\d{2}-\d{2}.*$/i, '')    // 移除日期
+        .replace(/\s*by\s+\w+\s+\d+,\s+\d{4}$/i, '') // 移除 "by March 31, 2026"
+        .trim();
+
+      if (!seriesGroups.has(seriesKey)) {
+        seriesGroups.set(seriesKey, []);
+      }
+      seriesGroups.get(seriesKey)!.push(event);
+    });
+
+    // 第三步：为每个系列创建父级行
+    return Array.from(seriesGroups.entries()).map(([seriesTitle, events]) => {
+      // 合并所有 markets
+      const allMarkets = events.flatMap(e => e.markets);
+      const firstMarket = allMarkets[0];
+
       const eventRow: CountdownMarket = {
         ...firstMarket,
+        eventTitle: seriesTitle, // 使用系列标题
         _isEvent: true,
-        _childMarkets: markets.length > 1 ? markets : undefined,
-        liquidity: markets.reduce((sum, m) => sum + parseFloat(String(m.liquidity || m.liquidityNum || '0')), 0),
-        volume: markets.reduce((sum, m) => sum + parseFloat(String(m.volume || m.volumeNum || '0')), 0),
+        _childMarkets: events.length > 1 ? allMarkets : (allMarkets.length > 1 ? allMarkets : undefined),
+        liquidity: allMarkets.reduce((sum, m) => sum + parseFloat(String(m.liquidity || m.liquidityNum || '0')), 0),
+        volume: allMarkets.reduce((sum, m) => sum + parseFloat(String(m.volume || m.volumeNum || '0')), 0),
       };
       return eventRow;
     });
@@ -72,14 +104,7 @@ export function MarketTable() {
   };
 
   const TimingBadge = ({ urgency }: { urgency: string }) => {
-    const config = {
-      critical: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200', label: '1小时内' },
-      urgent: { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-200', label: '24小时内' },
-      soon: { bg: 'bg-yellow-50', text: 'text-yellow-600', border: 'border-yellow-200', label: '本周内' },
-      normal: { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200', label: '更晚' }
-    };
-    const style = config[urgency as keyof typeof config] || config.normal;
-
+    const style = getTimeRangeStyle(urgency as TimeRangeKey);
     return (
       <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium border ${style.bg} ${style.text} ${style.border}`}>
         {style.label}
@@ -327,8 +352,28 @@ export function MarketTable() {
                       <div className="text-sm text-gray-700">{formatCurrency(childLiquidity)}</div>
                     </div>
 
-                    <div></div>
-                    <div></div>
+                    {/* 子市场结束时间 */}
+                    <div className="text-center space-y-1">
+                      <div className="text-sm text-gray-700">
+                        {child._deadline ? new Date(child._deadline).toISOString().slice(0, 16).replace('T', ' ') : '-'}
+                      </div>
+                      {child._hoursUntil !== undefined && (
+                        <div className="text-xs text-gray-500">
+                          {child._hoursUntil < 1
+                            ? `${Math.round(child._hoursUntil * 60)}分钟后`
+                            : child._hoursUntil < 24
+                            ? `${child._hoursUntil.toFixed(1)}小时后`
+                            : `${Math.round(child._hoursUntil / 24)}天后`
+                          }
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 子市场时间范围 */}
+                    <div className="flex justify-center">
+                      <TimingBadge urgency={child._urgency || 'normal'} />
+                    </div>
+
                     <div></div>
                   </div>
                 );

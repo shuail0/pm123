@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, RefreshCw } from 'lucide-react';
 import { useCountdownStore } from '@/lib/store/countdown';
@@ -19,6 +19,15 @@ export default function CountdownPage() {
     loading,
     lastUpdate
   } = useCountdownStore();
+
+  // 计算唯一的 event 数量
+  const uniqueEventCount = useMemo(() => {
+    const eventIds = new Set<string>();
+    filteredMarkets.forEach(m => {
+      if (m.eventId) eventIds.add(m.eventId);
+    });
+    return eventIds.size;
+  }, [filteredMarkets]);
 
   useEffect(() => {
     loadFromLocalStorage();
@@ -81,7 +90,7 @@ export default function CountdownPage() {
                   实时展示价格、成交量、流动性、结束时间等关键数据，掌握尾盘动态，利用最后时刻的信息优势获利。
                 </p>
                 <p className="text-gray-500 text-xs mt-1.5">
-                  {filteredMarkets.length} 个市场 {lastUpdate && `• 更新于 ${new Date(lastUpdate).toLocaleTimeString('zh-CN')}`}
+                  {uniqueEventCount} 个事件 • {filteredMarkets.length} 个市场 {lastUpdate && `• 更新于 ${new Date(lastUpdate).toLocaleTimeString('zh-CN')}`}
                 </p>
               </div>
             </div>

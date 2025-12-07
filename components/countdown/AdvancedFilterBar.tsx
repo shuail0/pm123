@@ -3,6 +3,7 @@
 import { Search, X, Filter } from 'lucide-react';
 import { useCountdownStore } from '@/lib/store/countdown';
 import { useMemo, useState, useRef, useEffect } from 'react';
+import { getFilterOptions } from '@/lib/utils/timeRanges';
 
 const VolumeRangeFilter = ({
   title,
@@ -197,17 +198,7 @@ export function AdvancedFilterBar() {
     }
   }, [isFilterOpen, isTagFilterOpen, isTimeFilterOpen, isVolumeFilterOpen, isNegRiskFilterOpen]);
 
-  const timePeriodOptions = [
-    { value: 'all', label: '全部时间' },
-    { value: '30min', label: '30分钟内' },
-    { value: '1h', label: '1小时内' },
-    { value: '2h', label: '2小时内' },
-    { value: '6h', label: '6小时内' },
-    { value: '12h', label: '12小时内' },
-    { value: '24h', label: '24小时内' },
-    { value: '3d', label: '3天内' },
-    { value: '7d', label: '7天内' }
-  ];
+  const timePeriodOptions = getFilterOptions();
 
   return (
     <div className="space-y-4 mb-6">

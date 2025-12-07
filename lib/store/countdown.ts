@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { TIME_RANGES, type TimeRangeKey } from '@/lib/utils/timeRanges';
 
 export type UrgencyLevel = 'critical' | 'urgent' | 'soon' | 'normal';
 
@@ -46,7 +47,7 @@ export type SortDirection = 'asc' | 'desc';
 
 export interface FilterOptions {
   status: 'all' | 'active' | 'closed';
-  timePeriod: '30min' | '1h' | '2h' | '6h' | '12h' | '24h' | '3d' | '7d' | 'all';
+  timePeriod: TimeRangeKey | 'all';
   negRiskFilter: 'all' | 'neg_risk' | 'non_neg_risk';
   selectedCategories: string[];
   tags: string[];
@@ -233,9 +234,8 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
 
     // 时间周期过滤
     if (filter.timePeriod !== 'all') {
-      const hourMap = { '30min': 0.5, '1h': 1, '2h': 2, '6h': 6, '12h': 12, '24h': 24, '3d': 72, '7d': 168 };
-      const maxHours = hourMap[filter.timePeriod as keyof typeof hourMap];
-      filtered = filtered.filter(m => m._hoursUntil && m._hoursUntil <= maxHours);
+      const maxHours = TIME_RANGES[filter.timePeriod as TimeRangeKey].hours;
+      filtered = filtered.filter(m => m._hoursUntil !== undefined && m._hoursUntil < maxHours);
     }
 
     // 标签过滤
