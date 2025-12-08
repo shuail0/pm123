@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/react";
 import Navigation from "@/components/Navigation";
 import "./globals.css";
 
@@ -21,6 +22,7 @@ export default function RootLayout({
       <body style={{ fontFamily: "var(--font-open-sauce)" }}>
         <Navigation />
         {children}
+        <Analytics />
       </body>
     </html>
   );
