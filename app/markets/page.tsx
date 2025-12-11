@@ -3,11 +3,11 @@
 import { useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, RefreshCw } from 'lucide-react';
-import { useCountdownStore } from '@/lib/store/countdown';
-import { AdvancedFilterBar } from '@/components/countdown/AdvancedFilterBar';
-import { EventTable } from '@/components/countdown/EventTable';
+import { useCountdownStore } from '@/lib/store/markets';
+import { AdvancedFilterBar } from '@/components/markets/AdvancedFilterBar';
+import { EventTable } from '@/components/markets/EventTable';
 
-export default function CountdownPage() {
+export default function MarketsPage() {
   const {
     setMarkets,
     setLoading,
@@ -80,9 +80,9 @@ export default function CountdownPage() {
                 <Clock className="w-7 h-7 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">尾盘市场</h1>
+                <h1 className="text-3xl font-bold text-gray-900">市场信息</h1>
                 <p className="text-gray-600 text-sm mt-1 leading-relaxed">
-                  实时展示价格、成交量、流动性、结束时间等关键数据，掌握尾盘动态，利用最后时刻的信息优势获利。
+                  实时展示价格、成交量、流动性、结束时间等关键数据，掌握市场动态，利用信息优势获利。
                 </p>
                 <p className="text-gray-500 text-xs mt-1.5">
                   {eventCount} 个事件 • {marketCount} 个市场 {lastUpdate && `• 更新于 ${new Date(lastUpdate).toLocaleTimeString('zh-CN')}`}

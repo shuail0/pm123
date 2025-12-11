@@ -8,7 +8,7 @@ export default function Navigation() {
   const pathname = usePathname();
 
   const navItems = [
-    { href: "/countdown", label: "尾盘市场" },
+    { href: "/markets", label: "市场信息" },
     { href: "/arbitrage", label: "跨市场套利" },
   ];
 

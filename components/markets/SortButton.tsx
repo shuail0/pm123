@@ -1,5 +1,5 @@
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
-import { useCountdownStore, type SortField } from '@/lib/store/countdown';
+import { useCountdownStore, type SortField } from '@/lib/store/markets';
 
 interface SortButtonProps {
   field: SortField;

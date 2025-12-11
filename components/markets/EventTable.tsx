@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
-import { useCountdownStore, type CountdownMarket, type CountdownEvent } from '@/lib/store/countdown';
+import { useCountdownStore, type CountdownMarket, type CountdownEvent } from '@/lib/store/markets';
 import { CATEGORY_CONFIG } from '@/lib/constants/categories';
 import { formatCurrency, formatTimeUntil, formatDateTime } from '@/lib/utils/format';
 import { SortButton } from './SortButton';

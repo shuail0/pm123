@@ -1,7 +1,7 @@
 'use client';
 
 import { Search, Filter } from 'lucide-react';
-import { useCountdownStore } from '@/lib/store/countdown';
+import { useCountdownStore } from '@/lib/store/markets';
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { getFilterOptions } from '@/lib/utils/timeRanges';
 import { CATEGORY_CONFIG, CATEGORY_ORDER } from '@/lib/constants/categories';
