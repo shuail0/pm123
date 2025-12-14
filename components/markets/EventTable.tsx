@@ -7,9 +7,19 @@ import { formatCurrency, formatTimeUntil, formatDateTime } from '@/lib/utils/for
 import { SortButton } from './SortButton';
 import { MarketIcon } from './MarketIcon';
 import { PriceBar } from './PriceBar';
+import { useState } from 'react';
 
 export function EventTable() {
   const { filteredMarkets, markets, expandedEvents, toggleEventExpand, loading, currentPage, pageSize, setCurrentPage, setPageSize } = useCountdownStore();
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
+
+  const toggleDescription = (id: string) => {
+    setExpandedDescriptions(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   const totalPages = Math.ceil(filteredMarkets.length / pageSize);
   const paginatedMarkets = filteredMarkets.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -40,7 +50,14 @@ export function EventTable() {
           )}
 
           {paginatedMarkets.map(event => (
-            <EventRow key={event.id} event={event} isExpanded={expandedEvents.has(event.id)} onToggle={() => toggleEventExpand(event.id)} />
+            <EventRow
+              key={event.id}
+              event={event}
+              isExpanded={expandedEvents.has(event.id)}
+              onToggle={() => toggleEventExpand(event.id)}
+              isDescriptionExpanded={expandedDescriptions.has(event.id)}
+              onToggleDescription={() => toggleDescription(event.id)}
+            />
           ))}
         </div>
       </div>
@@ -72,7 +89,13 @@ export function EventTable() {
   );
 }
 
-function EventRow({ event, isExpanded, onToggle }: { event: CountdownEvent; isExpanded: boolean; onToggle: () => void }) {
+function EventRow({ event, isExpanded, onToggle, isDescriptionExpanded, onToggleDescription }: {
+  event: CountdownEvent;
+  isExpanded: boolean;
+  onToggle: () => void;
+  isDescriptionExpanded: boolean;
+  onToggleDescription: () => void;
+}) {
   const hasMarkets = event.markets?.length > 0;
 
   return (
@@ -94,7 +117,23 @@ function EventRow({ event, isExpanded, onToggle }: { event: CountdownEvent; isEx
               </a>
               {event.negRisk && <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded font-medium flex-shrink-0">NegRisk</span>}
             </div>
-            {event.category && <div className="text-xs text-gray-500 mt-0.5">{CATEGORY_CONFIG[event.category] || event.category}</div>}
+            {event.description ? (
+              <div className="mt-0.5">
+                <div className={`text-xs text-gray-600 ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}>
+                  {event.description}
+                </div>
+                {event.description.length > 100 && (
+                  <button
+                    onClick={onToggleDescription}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-0.5"
+                  >
+                    {isDescriptionExpanded ? '收起' : '展开'}
+                  </button>
+                )}
+              </div>
+            ) : (
+              event.category && <div className="text-xs text-gray-500 mt-0.5">{CATEGORY_CONFIG[event.category] || event.category}</div>
+            )}
           </div>
         </div>
 

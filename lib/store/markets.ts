@@ -13,6 +13,7 @@ export interface CountdownMarket {
   liquidity?: string | number;
   volume?: string | number;
   volume24hr?: string | number;
+  openInterest?: string | number;
   outcomePrices?: string;
   lastTradePrice?: string | number;
   bestBid?: number;
@@ -27,6 +28,7 @@ export interface CountdownEvent {
   title: string;
   slug: string;
   category: string;
+  description?: string;
   tags?: any[];
   tagLabels?: string[];
   tagIds?: number[];
@@ -39,9 +41,10 @@ export interface CountdownEvent {
   volume?: number;
   liquidity?: number;
   volume24hr?: number;
+  openInterest?: number;
 }
 
-export type SortField = 'market' | 'liquidity' | 'volume' | 'volume24hr' | 'ends' | 'urgency';
+export type SortField = 'market' | 'liquidity' | 'volume' | 'volume24hr' | 'openInterest' | 'ends' | 'urgency';
 export type SortDirection = 'asc' | 'desc';
 
 export interface FilterOptions {
@@ -224,6 +227,10 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
         case 'volume24hr':
           aVal = a.volume24hr || 0;
           bVal = b.volume24hr || 0;
+          break;
+        case 'openInterest':
+          aVal = a.openInterest || 0;
+          bVal = b.openInterest || 0;
           break;
         case 'ends':
           aVal = new Date(a.deadline).getTime();

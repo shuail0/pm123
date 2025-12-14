@@ -125,6 +125,12 @@ function processEventsForCountdown(events: any[]) {
 
       const hoursUntil = (deadline - now) / 3600000;
 
+      // 计算事件级别的未平仓合约（聚合所有市场的未平仓合约）
+      const totalOpenInterest = activeMarkets.reduce((sum: number, m: any) => {
+        const marketOI = parseFloat(String(m.openInterest || 0));
+        return sum + (isNaN(marketOI) ? 0 : marketOI);
+      }, 0);
+
       return {
         ...event,
         markets: activeMarkets,
@@ -135,6 +141,7 @@ function processEventsForCountdown(events: any[]) {
         tagLabels: event.tags?.map((tag: any) => tag.label) || [],
         tagIds: event.tags?.map((tag: any) => parseInt(tag.id)) || [],
         marketCount: activeMarkets.length,
+        openInterest: totalOpenInterest,
       };
     })
     .filter(Boolean)
