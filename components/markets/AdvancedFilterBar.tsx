@@ -24,6 +24,13 @@ const VolumeRangeFilter = ({
   const [minInput, setMinInput] = useState(minValue || 0);
   const [maxInput, setMaxInput] = useState(maxValue || defaultMax);
 
+  // 当 defaultMax 改变时更新 maxInput
+  useEffect(() => {
+    if (!maxValue) {
+      setMaxInput(defaultMax);
+    }
+  }, [defaultMax, maxValue]);
+
   const formatCurrency = (num: number) => `$${num.toLocaleString('en-US')}`;
 
   const minPercent = (minInput / defaultMax) * 100;
@@ -122,6 +129,10 @@ export function AdvancedFilterBar() {
   const volumeFilterRef = useRef<HTMLDivElement>(null);
   const negRiskFilterRef = useRef<HTMLDivElement>(null);
 
+  // 计算实际数据的最大成交量
+  const maxVolume24hr = useMemo(() => Math.max(...markets.map(m => m.volume24hr || 0), 1000000), [markets]);
+  const maxVolume = useMemo(() => Math.max(...markets.map(m => m.volume || 0), 1000000), [markets]);
+
   // 提取所有可用的类别并按官方顺序排序
   const availableCategories = useMemo(() => {
     const categories = new Set<string>();
@@ -131,14 +142,33 @@ export function AdvancedFilterBar() {
     return CATEGORY_ORDER.filter(cat => categories.has(cat));
   }, [markets]);
 
-  // 提取排除分类后剩余的标签
+  // 提取当前筛选条件下的标签（基于分类筛选后的结果）
   const availableTags = useMemo(() => {
     const tags = new Set<string>();
-    filteredMarkets.forEach(m => {
+    let marketsToCheck = markets;
+
+    // 如果有选中的分类，先按分类筛选
+    if (filter.selectedCategories.length > 0) {
+      marketsToCheck = markets.filter(m => filter.selectedCategories.includes(m.category));
+    }
+
+    // 从筛选后的市场中提取标签
+    marketsToCheck.forEach(m => {
       m.tagLabels?.forEach(tag => tags.add(tag));
     });
+
     return Array.from(tags).sort();
-  }, [filteredMarkets]);
+  }, [markets, filter.selectedCategories]);
+
+  // 当可用标签改变时，自动清除不在范围内的已选标签
+  useEffect(() => {
+    if (filter.tags.length > 0) {
+      const validTags = filter.tags.filter(tag => availableTags.includes(tag));
+      if (validTags.length !== filter.tags.length) {
+        setFilter({ tags: validTags });
+      }
+    }
+  }, [availableTags]);
 
   // 过滤后的分类列表
   const filteredCategories = useMemo(() =>
@@ -275,6 +305,7 @@ export function AdvancedFilterBar() {
                 maxValue={filter.maxVolume24hr}
                 onMinChange={val => setFilter({ minVolume24hr: val })}
                 onMaxChange={val => setFilter({ maxVolume24hr: val })}
+                defaultMax={maxVolume24hr}
               />
               <div className="border-t border-gray-200" />
               <VolumeRangeFilter
@@ -283,78 +314,8 @@ export function AdvancedFilterBar() {
                 maxValue={filter.maxVolume}
                 onMinChange={val => setFilter({ minVolume: val })}
                 onMaxChange={val => setFilter({ maxVolume: val })}
+                defaultMax={maxVolume}
               />
-            </div>
-          )}
-        </div>
-
-        {/* 标签筛选 */}
-        <div className="relative" ref={tagFilterRef}>
-          <button
-            onClick={() => setIsTagFilterOpen(!isTagFilterOpen)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-polyBlue transition-colors"
-          >
-            <Filter className="w-4 h-4 text-gray-600" />
-            <span>标签筛选</span>
-            {filter.tags.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-polyBlue text-white text-xs rounded-full">
-                {filter.tags.length}
-              </span>
-            )}
-          </button>
-          {isTagFilterOpen && (
-            <div className="absolute z-10 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg">
-              <div className="p-3 border-b border-gray-200">
-                <div className="relative mb-2">
-                  <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={tagSearch}
-                    onChange={e => setTagSearch(e.target.value)}
-                    placeholder="搜索标签..."
-                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-polyBlue"
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-gray-700">已选 ({filter.tags.length}/{availableTags.length})</span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setFilter({ tags: [...availableTags] })}
-                      className="text-xs text-polyBlue hover:text-polyBlue/80 font-medium"
-                    >
-                      全选
-                    </button>
-                    <button
-                      onClick={() => setFilter({ tags: [] })}
-                      className="text-xs text-polyBlue hover:text-polyBlue/80 font-medium"
-                    >
-                      清除
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="max-h-80 overflow-y-auto">
-                {filteredTagsList.map(tag => (
-                  <label key={tag} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={filter.tags.includes(tag)}
-                      onChange={e => {
-                        if (e.target.checked) {
-                          setFilter({ tags: [...filter.tags, tag] });
-                        } else {
-                          setFilter({ tags: filter.tags.filter(t => t !== tag) });
-                        }
-                      }}
-                      className="w-4 h-4 text-polyBlue border-gray-300 rounded focus:ring-polyBlue cursor-pointer"
-                    />
-                    <span className="text-sm text-gray-700 flex-1">{tag}</span>
-                  </label>
-                ))}
-                {filteredTagsList.length === 0 && (
-                  <div className="px-3 py-6 text-center text-sm text-gray-400">未找到匹配的标签</div>
-                )}
-              </div>
             </div>
           )}
         </div>
@@ -427,6 +388,77 @@ export function AdvancedFilterBar() {
                 ))}
                 {filteredCategories.length === 0 && (
                   <div className="px-3 py-6 text-center text-sm text-gray-400">未找到匹配的分类</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 标签筛选 */}
+        <div className="relative" ref={tagFilterRef}>
+          <button
+            onClick={() => setIsTagFilterOpen(!isTagFilterOpen)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-polyBlue transition-colors"
+          >
+            <Filter className="w-4 h-4 text-gray-600" />
+            <span>标签筛选</span>
+            {filter.tags.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 bg-polyBlue text-white text-xs rounded-full">
+                {filter.tags.length}
+              </span>
+            )}
+          </button>
+          {isTagFilterOpen && (
+            <div className="absolute z-10 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg">
+              <div className="p-3 border-b border-gray-200">
+                <div className="relative mb-2">
+                  <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={tagSearch}
+                    onChange={e => setTagSearch(e.target.value)}
+                    placeholder="搜索标签..."
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-polyBlue"
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-gray-700">已选 ({filter.tags.length}/{availableTags.length})</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setFilter({ tags: [...availableTags] })}
+                      className="text-xs text-polyBlue hover:text-polyBlue/80 font-medium"
+                    >
+                      全选
+                    </button>
+                    <button
+                      onClick={() => setFilter({ tags: [] })}
+                      className="text-xs text-polyBlue hover:text-polyBlue/80 font-medium"
+                    >
+                      清除
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {filteredTagsList.map(tag => (
+                  <label key={tag} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={filter.tags.includes(tag)}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setFilter({ tags: [...filter.tags, tag] });
+                        } else {
+                          setFilter({ tags: filter.tags.filter(t => t !== tag) });
+                        }
+                      }}
+                      className="w-4 h-4 text-polyBlue border-gray-300 rounded focus:ring-polyBlue cursor-pointer"
+                    />
+                    <span className="text-sm text-gray-700 flex-1">{tag}</span>
+                  </label>
+                ))}
+                {filteredTagsList.length === 0 && (
+                  <div className="px-3 py-6 text-center text-sm text-gray-400">未找到匹配的标签</div>
                 )}
               </div>
             </div>
