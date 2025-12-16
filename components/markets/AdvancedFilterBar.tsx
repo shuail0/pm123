@@ -118,13 +118,16 @@ export function AdvancedFilterBar() {
   const { filter, setFilter, markets, filteredMarkets } = useCountdownStore();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isTagFilterOpen, setIsTagFilterOpen] = useState(false);
+  const [isSeriesFilterOpen, setIsSeriesFilterOpen] = useState(false);
   const [isTimeFilterOpen, setIsTimeFilterOpen] = useState(false);
   const [isVolumeFilterOpen, setIsVolumeFilterOpen] = useState(false);
   const [isNegRiskFilterOpen, setIsNegRiskFilterOpen] = useState(false);
   const [categorySearch, setCategorySearch] = useState('');
   const [tagSearch, setTagSearch] = useState('');
+  const [seriesSearch, setSeriesSearch] = useState('');
   const filterRef = useRef<HTMLDivElement>(null);
   const tagFilterRef = useRef<HTMLDivElement>(null);
+  const seriesFilterRef = useRef<HTMLDivElement>(null);
   const timeFilterRef = useRef<HTMLDivElement>(null);
   const volumeFilterRef = useRef<HTMLDivElement>(null);
   const negRiskFilterRef = useRef<HTMLDivElement>(null);
@@ -160,6 +163,24 @@ export function AdvancedFilterBar() {
     return Array.from(tags).sort();
   }, [markets, filter.selectedCategories]);
 
+  // 提取当前筛选条件下的series（基于分类筛选后的结果）
+  const availableSeries = useMemo(() => {
+    const seriesSet = new Set<string>();
+    let marketsToCheck = markets;
+
+    // 如果有选中的分类，先按分类筛选
+    if (filter.selectedCategories.length > 0) {
+      marketsToCheck = markets.filter(m => filter.selectedCategories.includes(m.category));
+    }
+
+    // 从筛选后的市场中提取series
+    marketsToCheck.forEach(m => {
+      m.seriesLabels?.forEach(series => seriesSet.add(series));
+    });
+
+    return Array.from(seriesSet).sort();
+  }, [markets, filter.selectedCategories]);
+
   // 当可用标签改变时，自动清除不在范围内的已选标签
   useEffect(() => {
     if (filter.tags.length > 0) {
@@ -169,6 +190,16 @@ export function AdvancedFilterBar() {
       }
     }
   }, [availableTags]);
+
+  // 当可用series改变时，自动清除不在范围内的已选series
+  useEffect(() => {
+    if (filter.series.length > 0) {
+      const validSeries = filter.series.filter(series => availableSeries.includes(series));
+      if (validSeries.length !== filter.series.length) {
+        setFilter({ series: validSeries });
+      }
+    }
+  }, [availableSeries]);
 
   // 过滤后的分类列表
   const filteredCategories = useMemo(() =>
@@ -185,6 +216,11 @@ export function AdvancedFilterBar() {
     [availableTags, tagSearch]
   );
 
+  const filteredSeriesList = useMemo(() =>
+    availableSeries.filter(series => series.toLowerCase().includes(seriesSearch.toLowerCase())),
+    [availableSeries, seriesSearch]
+  );
+
   // 点击外部关闭下拉框
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -193,6 +229,9 @@ export function AdvancedFilterBar() {
       }
       if (tagFilterRef.current && !tagFilterRef.current.contains(event.target as Node)) {
         setIsTagFilterOpen(false);
+      }
+      if (seriesFilterRef.current && !seriesFilterRef.current.contains(event.target as Node)) {
+        setIsSeriesFilterOpen(false);
       }
       if (timeFilterRef.current && !timeFilterRef.current.contains(event.target as Node)) {
         setIsTimeFilterOpen(false);
@@ -205,11 +244,11 @@ export function AdvancedFilterBar() {
       }
     };
 
-    if (isFilterOpen || isTagFilterOpen || isTimeFilterOpen || isVolumeFilterOpen || isNegRiskFilterOpen) {
+    if (isFilterOpen || isTagFilterOpen || isSeriesFilterOpen || isTimeFilterOpen || isVolumeFilterOpen || isNegRiskFilterOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [isFilterOpen, isTagFilterOpen, isTimeFilterOpen, isVolumeFilterOpen, isNegRiskFilterOpen]);
+  }, [isFilterOpen, isTagFilterOpen, isSeriesFilterOpen, isTimeFilterOpen, isVolumeFilterOpen, isNegRiskFilterOpen]);
 
   const timePeriodOptions = getFilterOptions();
 
@@ -388,6 +427,77 @@ export function AdvancedFilterBar() {
                 ))}
                 {filteredCategories.length === 0 && (
                   <div className="px-3 py-6 text-center text-sm text-gray-400">未找到匹配的分类</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 系列筛选 */}
+        <div className="relative" ref={seriesFilterRef}>
+          <button
+            onClick={() => setIsSeriesFilterOpen(!isSeriesFilterOpen)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-polyBlue transition-colors"
+          >
+            <Filter className="w-4 h-4 text-gray-600" />
+            <span>系列筛选</span>
+            {filter.series.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 bg-polyBlue text-white text-xs rounded-full">
+                {filter.series.length}
+              </span>
+            )}
+          </button>
+          {isSeriesFilterOpen && (
+            <div className="absolute z-10 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg">
+              <div className="p-3 border-b border-gray-200">
+                <div className="relative mb-2">
+                  <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={seriesSearch}
+                    onChange={e => setSeriesSearch(e.target.value)}
+                    placeholder="搜索系列..."
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-polyBlue"
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-gray-700">已选 ({filter.series.length}/{availableSeries.length})</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setFilter({ series: [...availableSeries] })}
+                      className="text-xs text-polyBlue hover:text-polyBlue/80 font-medium"
+                    >
+                      全选
+                    </button>
+                    <button
+                      onClick={() => setFilter({ series: [] })}
+                      className="text-xs text-polyBlue hover:text-polyBlue/80 font-medium"
+                    >
+                      清除
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {filteredSeriesList.map(series => (
+                  <label key={series} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={filter.series.includes(series)}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setFilter({ series: [...filter.series, series] });
+                        } else {
+                          setFilter({ series: filter.series.filter(s => s !== series) });
+                        }
+                      }}
+                      className="w-4 h-4 text-polyBlue border-gray-300 rounded focus:ring-polyBlue cursor-pointer"
+                    />
+                    <span className="text-sm text-gray-700 flex-1">{series}</span>
+                  </label>
+                ))}
+                {filteredSeriesList.length === 0 && (
+                  <div className="px-3 py-6 text-center text-sm text-gray-400">未找到匹配的系列</div>
                 )}
               </div>
             </div>

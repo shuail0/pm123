@@ -23,6 +23,17 @@ export interface CountdownMarket {
   negRisk?: boolean;
 }
 
+export interface Series {
+  id: string;
+  ticker: string;
+  slug: string;
+  title: string;
+  seriesType?: string;
+  recurrence?: string;
+  image?: string;
+  icon?: string;
+}
+
 export interface CountdownEvent {
   id: string;
   title: string;
@@ -32,6 +43,8 @@ export interface CountdownEvent {
   tags?: any[];
   tagLabels?: string[];
   tagIds?: number[];
+  series?: Series[];
+  seriesLabels?: string[];
   deadline: string;
   hoursUntil: number;
   urgency: string;
@@ -53,6 +66,7 @@ export interface FilterOptions {
   negRiskFilter: 'all' | 'neg_risk' | 'non_neg_risk';
   selectedCategories: string[];
   tags: string[];
+  series: string[];
   searchQuery?: string;
   minLiquidity?: number;
   minVolume24hr?: number;
@@ -98,6 +112,7 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
     negRiskFilter: 'all',
     selectedCategories: [],
     tags: [],
+    series: [],
     searchQuery: '',
     minLiquidity: 1000,
     sortField: 'urgency',
@@ -183,6 +198,12 @@ export const useCountdownStore = create<CountdownStore>()((set, get) => ({
     if (filter.tags.length > 0) {
       filtered = filtered.filter(e =>
         e.tagLabels?.some(tag => filter.tags.includes(tag))
+      );
+    }
+
+    if (filter.series.length > 0) {
+      filtered = filtered.filter(e =>
+        e.seriesLabels?.some(series => filter.series.includes(series))
       );
     }
 

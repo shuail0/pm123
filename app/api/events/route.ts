@@ -140,6 +140,7 @@ function processEventsForCountdown(events: any[]) {
         category: event.tags?.find((tag: any) => OFFICIAL_CATEGORIES.includes(tag.slug))?.slug || 'others',
         tagLabels: event.tags?.map((tag: any) => tag.label) || [],
         tagIds: event.tags?.map((tag: any) => parseInt(tag.id)) || [],
+        seriesLabels: event.series?.map((s: any) => s.title) || [],
         marketCount: activeMarkets.length,
         openInterest: totalOpenInterest,
       };
